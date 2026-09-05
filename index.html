@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wippa Sky — Tower Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#050914;color:#e7edf7;font-family:'DM Sans',system-ui,sans-serif;overflow:hidden;height:100vh;width:100vw;user-select:none}
+  #game-container{position:relative;width:100vw;height:100vh}
+  #game-canvas{display:block;width:100%;height:100%;cursor:default}
+  .glass{background:linear-gradient(135deg,rgba(13,24,43,.78),rgba(7,13,27,.64));backdrop-filter:blur(24px) saturate(140%);-webkit-backdrop-filter:blur(24px) saturate(140%);border:1px solid rgba(174,218,255,.14);border-radius:18px;box-shadow:0 18px 60px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.09),0 0 0 1px rgba(0,0,0,.12)}
+  #top-hud{position:absolute;top:18px;left:50%;transform:translateX(-50%);display:flex;gap:9px;align-items:center;padding:9px 12px;z-index:100}
+  .stat{display:flex;align-items:center;gap:8px;padding:5px 13px;border-radius:11px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075)}
+  .stat-icon{font-size:15px;filter:saturate(.85)}
+  .stat-label{font-size:9px;text-transform:uppercase;letter-spacing:1.4px;color:rgba(213,230,247,.48);font-weight:700}
+  .stat-value{font-size:14px;font-weight:700;font-family:'Space Grotesk','JetBrains Mono',monospace}
+  .stat-money .stat-value{color:#4ade80}
+  .stat-pop .stat-value{color:#60a5fa}
+  .stat-floors .stat-value{color:#c084fc}
+  .stat-rating .stat-value{color:#fbbf24}
+  #toolbar{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:6px;padding:9px 11px;z-index:100;align-items:stretch}
+  .tool-group{display:flex;gap:4px;padding:0 8px;border-right:1px solid rgba(255,255,255,0.06)}
+  .tool-group:last-child{border-right:none;padding-right:0}
+  .tool-group:first-child{padding-left:0}
+  .tool-btn{width:52px;height:52px;border:none;border-radius:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075);color:#aab8cc;font-size:10px;transition:all .18s cubic-bezier(.2,.8,.2,1);position:relative}
+  .tool-btn:hover{background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.15);transform:translateY(-2px)}
+  .tool-btn.active{background:linear-gradient(145deg,rgba(61,212,220,.2),rgba(96,91,255,.22));color:#d8fbff;border-color:rgba(102,224,234,.62);box-shadow:0 0 24px rgba(60,207,224,.2),inset 0 1px 0 rgba(255,255,255,.14)}
+  .tool-btn .icon{font-size:20px;line-height:1}
+  .tool-btn .label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+  .tool-btn .cost{font-size:8px;color:rgba(255,255,255,0.3);font-family:'JetBrains Mono',monospace}
+  .tool-btn.active .cost{color:rgba(255,255,255,0.5)}
+  #info-panel{position:absolute;top:80px;right:16px;width:260px;padding:16px;z-index:100;display:none}
+  #info-panel.visible{display:block}
+  #info-panel h3{font-size:14px;font-weight:700;margin-bottom:10px;color:#e0e0ff}
+  .info-row{display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid rgba(255,255,255,0.04)}
+  .info-row .label{color:rgba(255,255,255,0.4)}
+  .info-row .value{font-weight:600;font-family:'JetBrains Mono',monospace}
+  .info-close{position:absolute;top:10px;right:12px;background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:18px}
+  #minimap-container{position:absolute;top:80px;left:16px;z-index:100;padding:8px}
+  #minimap-canvas{border-radius:8px;cursor:pointer}
+  #speed-controls{position:absolute;bottom:20px;right:16px;display:flex;gap:4px;padding:6px 8px;z-index:100}
+  .speed-btn{width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:#a0a0c0;font-size:12px;font-weight:700;transition:all 0.15s;display:flex;align-items:center;justify-content:center}
+  .speed-btn:hover{background:rgba(255,255,255,0.1)}
+  .speed-btn.active{background:rgba(74,222,128,0.15);color:#4ade80;border-color:rgba(74,222,128,0.3)}
+  #event-log{position:absolute;bottom:90px;left:16px;width:320px;z-index:100;padding:10px 14px;max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:3px}
+  #event-log::-webkit-scrollbar{width:4px}
+  #event-log::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+  .log-entry{font-size:11px;color:rgba(255,255,255,0.5);padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.03);animation:fadeIn 0.3s}
+  .log-entry .time{color:rgba(255,255,255,0.25);font-family:'JetBrains Mono',monospace;font-size:10px;margin-right:6px}
+  .log-entry.income{color:#4ade80}
+  .log-entry.expense{color:#f87171}
+  .log-entry.info{color:#60a5fa}
+  .log-entry.warning{color:#fbbf24}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+  #date-display{position:absolute;top:20px;right:16px;padding:9px 17px;z-index:100}
+  #date-display .day{font-size:18px;font-weight:800;color:#e0e0ff}
+  #date-display .period{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,0.3);font-weight:600}
+  #achievement-popup{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:600;pointer-events:none;opacity:0;transition:opacity 0.4s,text-shadow 0.4s}
+  #achievement-popup.show{opacity:1}
+  #achievement-popup .ach-inner{background:rgba(15,15,40,0.85);backdrop-filter:blur(30px);border:1px solid rgba(251,191,36,0.3);border-radius:20px;padding:30px 50px;text-align:center;box-shadow:0 0 60px rgba(251,191,36,0.15)}
+  #achievement-popup .ach-icon{font-size:40px;margin-bottom:8px}
+  #achievement-popup .ach-title{font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#fbbf24;font-weight:700;margin-bottom:4px}
+  #achievement-popup .ach-name{font-size:22px;font-weight:900;color:#fff}
+  .toast{position:absolute;top:80px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:12px;z-index:200;font-size:13px;font-weight:500;animation:toastIn 0.3s,toastOut 0.3s 2.7s forwards;pointer-events:none}
+  .toast.success{background:rgba(74,222,128,0.15);border:1px solid rgba(74,222,128,0.3);color:#4ade80}
+  .toast.error{background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);color:#f87171}
+  .toast.info{background:rgba(96,165,250,0.15);border:1px solid rgba(96,165,250,0.3);color:#60a5fa}
+  @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+  @keyframes toastOut{from{opacity:1}to{opacity:0}}
+  #sound-toggle{position:absolute;bottom:20px;left:16px;width:38px;height:38px;border:none;border-radius:11px;cursor:pointer;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.1);color:#a0b5cc;font-size:16px;z-index:100;display:flex;align-items:center;justify-content:center;transition:all .15s}
+  @media(max-width:900px){#top-hud{gap:3px;padding:7px 6px;max-width:calc(100vw - 24px)}.stat{padding:4px 7px;gap:4px}.stat-label{display:none}.stat-value{font-size:11px}#toolbar{bottom:10px;max-width:calc(100vw - 20px);overflow-x:auto;justify-content:flex-start}.tool-group{padding:0 4px}.tool-btn{width:45px;height:48px}.tool-btn .icon{font-size:17px}#event-log{display:none}#minimap-container{top:78px;left:10px;transform:scale(.75);transform-origin:top left}#date-display{top:16px;right:10px}.glass{border-radius:14px}}
+  #sound-toggle:hover{background:rgba(255,255,255,0.1)}
+</style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+  <div id="top-hud" class="glass">
+    <div class="stat stat-money"><span class="stat-icon">💰</span><div><div class="stat-label">Funds</div><div class="stat-value" id="hud-money">$500,000</div></div></div>
+    <div class="stat stat-pop"><span class="stat-icon">👥</span><div><div class="stat-label">Population</div><div class="stat-value" id="hud-pop">0</div></div></div>
+    <div class="stat stat-floors"><span class="stat-icon">🏢</span><div><div class="stat-label">Floors</div><div class="stat-value" id="hud-floors">0</div></div></div>
+    <div class="stat stat-rating"><span class="stat-icon">⭐</span><div><div class="stat-label">Rating</div><div class="stat-value" id="hud-rating">★</div></div></div>
+  </div>
+  <div id="date-display" class="glass">
+    <div class="day" id="date-day">Day 1</div>
+    <div class="period" id="date-period">Morning</div>
+  </div>
+  <div id="toolbar" class="glass">
+    <div class="tool-group">
+      <button class="tool-btn" data-tool="office" title="Office"><span class="icon">💼</span><span class="label">Office</span><span class="cost">$10k</span></button>
+      <button class="tool-btn" data-tool="residence" title="Residence"><span class="icon">🏠</span><span class="label">Living</span><span class="cost">$15k</span></button>
+      <button class="tool-btn" data-tool="hotel" title="Hotel"><span class="icon">🏨</span><span class="label">Hotel</span><span class="cost">$20k</span></button>
+      <button class="tool-btn" data-tool="shop" title="Shop"><span class="icon">🛍️</span><span class="label">Shop</span><span class="cost">$8k</span></button>
+      <button class="tool-btn" data-tool="restaurant" title="Restaurant"><span class="icon">🍽️</span><span class="label">Dining</span><span class="cost">$12k</span></button>
+    </div>
+    <div class="tool-group">
+      <button class="tool-btn" data-tool="cinema" title="Cinema"><span class="icon">🎬</span><span class="label">Cinema</span><span class="cost">$25k</span></button>
+      <button class="tool-btn" data-tool="park" title="Sky Park"><span class="icon">🌳</span><span class="label">Park</span><span class="cost">$18k</span></button>
+      <button class="tool-btn" data-tool="spa" title="Spa"><span class="icon">🧖</span><span class="label">Spa</span><span class="cost">$22k</span></button>
+    </div>
+    <div class="tool-group">
+      <button class="tool-btn" data-tool="elevator" title="Elevator Shaft"><span class="icon">🛗</span><span class="label">Elevator</span><span class="cost">$5k</span></button>
+      <button class="tool-btn" data-tool="demolish" title="Demolish"><span class="icon">💥</span><span class="label">Demo</span><span class="cost"></span></button>
+    </div>
+    <div class="tool-group">
+      <button class="tool-btn" data-tool="select" title="Select / Info"><span class="icon">👆</span><span class="label">Select</span><span class="cost"></span></button>
+    </div>
+  </div>
+  <div id="minimap-container" class="glass">
+    <canvas id="minimap-canvas" width="120" height="300"></canvas>
+  </div>
+  <div id="speed-controls" class="glass">
+    <button class="speed-btn" data-speed="0">⏸</button>
+    <button class="speed-btn active" data-speed="1">▶</button>
+    <button class="speed-btn" data-speed="2">▶▶</button>
+    <button class="speed-btn" data-speed="3">▶▶▶</button>
+  </div>
+  <div id="event-log" class="glass"></div>
+  <button id="sound-toggle" title="Toggle Sound">🔇</button>
+  <div id="achievement-popup"><div class="ach-inner"><div class="ach-icon" id="ach-icon">🏆</div><div class="ach-title">Achievement</div><div class="ach-name" id="ach-name"></div></div></div>
+  <div id="info-panel" class="glass">
+    <button class="info-close" onclick="closeInfoPanel()">×</button>
+    <h3 id="info-title">Floor Info</h3>
+    <div id="info-content"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  WIPPA SKY — Modern Tower Builder (Phenomenal Edition)
+// ═══════════════════════════════════════════════════════
+
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const minimapCanvas = document.getElementById('minimap-canvas');
+const minimapCtx = minimapCanvas.getContext('2d');
+
+// ── Constants ──
+const COLS = 9;
+const MAX_FLOORS = 100;
+const CELL_W = 80;
+const CELL_H = 40;
+const GROUND_Y_OFFSET = 140;
+const ELEVATOR_SPEED = 2.5;
+
+const COLORS = {
+  building: { office:'#3b82f6', residence:'#8b5cf6', hotel:'#f59e0b', shop:'#ec4899', restaurant:'#ef4444', cinema:'#6366f1', spa:'#14b8a6', park:'#22c55e', elevator:'#64748b', lobby:'#475569' },
+  buildingLight: { office:'#60a5fa', residence:'#a78bfa', hotel:'#fbbf24', shop:'#f472b6', restaurant:'#f87171', cinema:'#818cf8', spa:'#2dd4bf', park:'#4ade80', elevator:'#94a3b8', lobby:'#64748b' },
+  buildingDark: { office:'#1d4ed8', residence:'#6d28d9', hotel:'#d97706', shop:'#db2777', restaurant:'#dc2626', cinema:'#4f46e5', spa:'#0d9488', park:'#16a34a', elevator:'#475569', lobby:'#334155' },
+};
+
+// ── Game State ──
+const state = {
+  money: 500000, population: 0, satisfaction: 75, rating: 1,
+  day: 1, tick: 0, dayTime: 0, speed: 1,
+  cameraY: 0, cameraX: 0, zoom: 1,
+  hoveredCell: null, selectedTool: 'select',
+  tower: [], elevators: [], elevatorCars: [],
+  tenants: [], particles: [], clouds: [], stars: [],
+  bgBuildings: [], cars: [], weather: [],
+  notifications: [], dayPhase: 'morning',
+  income: 0, expenses: 0, totalBuilt: 0,
+  achievementsUnlocked: new Set(),
+  soundEnabled: false,
+  craneAngle: 0, craneTargetAngle: 0,
+};
+
+// ── Floor types ──
+const FLOOR_TYPES = {
+  office:     { name:'Office',     cost:10000,  income:200,  popAdd:0,  satisfaction:2,  residents:false, icon:'💼', capacity:5 },
+  residence:  { name:'Residence',  cost:15000,  income:50,   popAdd:4,  satisfaction:5,  residents:true,  icon:'🏠', capacity:4 },
+  hotel:      { name:'Hotel',      cost:20000,  income:300,  popAdd:0,  satisfaction:3,  residents:true,  icon:'🏨', capacity:2 },
+  shop:       { name:'Shop',       cost:8000,   income:150,  popAdd:0,  satisfaction:4,  residents:false, icon:'🛍️', capacity:3 },
+  restaurant: { name:'Restaurant', cost:12000,  income:250,  popAdd:0,  satisfaction:6,  residents:false, icon:'🍽️', capacity:4 },
+  cinema:     { name:'Cinema',     cost:25000,  income:400,  popAdd:0,  satisfaction:8,  residents:false, icon:'🎬', capacity:8 },
+  park:       { name:'Sky Park',   cost:18000,  income:30,   popAdd:0,  satisfaction:10, residents:false, icon:'🌳', capacity:0 },
+  spa:        { name:'Spa',        cost:22000,  income:350,  popAdd:0,  satisfaction:7,  residents:false, icon:'🧖', capacity:2 },
+  elevator:   { name:'Elevator',   cost:5000,   income:0,    popAdd:0,  satisfaction:0,  residents:false, icon:'🛗', capacity:0 },
+  lobby:      { name:'Lobby',      cost:0,      income:0,    popAdd:0,  satisfaction:0,  residents:false, icon:'🚪', capacity:0 },
+};
+
+// ── Sound System (Web Audio) ──
+let audioCtx = null;
+function initAudio() {
+  if (audioCtx) return;
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+}
+function playTone(freq, dur, vol, type='sine') {
+  if (!state.soundEnabled || !audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(vol * 0.3, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+function sfxBuild() { playTone(523, 0.1, 0.5, 'sine'); setTimeout(() => playTone(659, 0.1, 0.4), 60); setTimeout(() => playTone(784, 0.15, 0.3), 120); }
+function sfxDemolish() { playTone(200, 0.2, 0.4, 'sawtooth'); setTimeout(() => playTone(120, 0.3, 0.3), 100); }
+function sfxClick() { playTone(800, 0.05, 0.15, 'sine'); }
+function sfxAchievement() { [523,659,784,1047].forEach((f,i) => setTimeout(() => playTone(f, 0.2, 0.3), i * 100)); }
+function sfxElevator() { playTone(440, 0.08, 0.1, 'sine'); }
+function sfxDayChange() { playTone(392, 0.15, 0.2, 'triangle'); setTimeout(() => playTone(523, 0.2, 0.15), 150); }
+
+document.getElementById('sound-toggle').addEventListener('click', () => {
+  initAudio();
+  state.soundEnabled = !state.soundEnabled;
+  document.getElementById('sound-toggle').textContent = state.soundEnabled ? '🔊' : '🔇';
+  if (state.soundEnabled) sfxClick();
+});
+
+// ── Initialize tower grid ──
+function initTower() {
+  state.tower = [];
+  for (let r = 0; r < MAX_FLOORS; r++) {
+    state.tower[r] = [];
+    for (let c = 0; c < COLS; c++) state.tower[r][c] = null;
+  }
+  for (let c = 0; c < COLS; c++) state.tower[0][c] = { type:'lobby', built:0, occupancy:0, satisfaction:0 };
+  state.tower[0][0] = { type:'elevator', built:0, occupancy:0, satisfaction:0, elevatorId:0 };
+  state.tower[0][4] = { type:'elevator', built:0, occupancy:0, satisfaction:0, elevatorId:1 };
+  state.tower[0][8] = { type:'elevator', built:0, occupancy:0, satisfaction:0, elevatorId:2 };
+  initElevators();
+}
+
+function initElevators() {
+  state.elevators = [
+    { id:0, col:0, floors:[0] }, { id:1, col:4, floors:[0] }, { id:2, col:8, floors:[0] },
+  ];
+  state.elevatorCars = [
+    { elevatorId:0, floor:0, targetFloor:0, y:0, state:'idle', doorOpen:0, passengers:[], waitTimer:0 },
+    { elevatorId:1, floor:0, targetFloor:0, y:0, state:'idle', doorOpen:0, passengers:[], waitTimer:0 },
+    { elevatorId:2, floor:0, targetFloor:0, y:0, state:'idle', doorOpen:0, passengers:[], waitTimer:0 },
+  ];
+}
+
+function initBackgroundCity() {
+  state.bgBuildings = [];
+  for (let i = 0; i < 40; i++) {
+    state.bgBuildings.push({
+      x: i * (canvas.width / 20) - 100,
+      w: 20 + Math.random() * 50,
+      h: 60 + Math.random() * 250,
+      color: `hsl(${220 + Math.random() * 20}, ${10 + Math.random() * 15}%, ${12 + Math.random() * 8}%)`,
+      windows: Math.random() > 0.3,
+      windowRows: 3 + Math.floor(Math.random() * 10),
+      windowCols: 2 + Math.floor(Math.random() * 3),
+      layer: Math.random() > 0.5 ? 0 : 1,
+    });
+  }
+}
+
+function initGroundLevel() {
+  state.cars = [];
+  for (let i = 0; i < 6; i++) {
+    state.cars.push({
+      x: Math.random() * canvas.width * 1.5 - canvas.width * 0.25,
+      speed: 30 + Math.random() * 60,
+      dir: Math.random() > 0.5 ? 1 : -1,
+      color: ['#ef4444','#3b82f6','#f59e0b','#22c55e','#8b5cf6','#ec4899'][Math.floor(Math.random() * 6)],
+      w: 18 + Math.random() * 10,
+      lane: Math.floor(Math.random() * 2),
+    });
+  }
+}
+
+function initWeather() {
+  state.weather = [];
+  state.clouds = [];
+  state.stars = [];
+  for (let i = 0; i < 18; i++) {
+    state.clouds.push({
+      x: Math.random() * canvas.width * 2 - canvas.width * 0.5,
+      y: 20 + Math.random() * 120,
+      w: 100 + Math.random() * 200,
+      h: 25 + Math.random() * 40,
+      speed: 4 + Math.random() * 12,
+      opacity: 0.12 + Math.random() * 0.18,
+    });
+  }
+  for (let i = 0; i < 100; i++) {
+    state.stars.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height * 0.4,
+      size: 0.5 + Math.random() * 1.5,
+      twinkle: Math.random() * Math.PI * 2,
+    });
+  }
+}
+
+// ── Resize ──
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  // Keep the complete tower readable on narrow screens without changing its
+  // logical grid or the flat click/drag interaction model.
+  state.zoom = Math.min(1, Math.max(.62, canvas.width / 760));
+  state.cameraY = Math.max(0, getHighestFloor() * CELL_H - canvas.height + GROUND_Y_OFFSET + 100);
+  initBackgroundCity();
+  initGroundLevel();
+  initWeather();
+}
+window.addEventListener('resize', resize);
+
+// ── Helpers ──
+function getHighestFloor() {
+  for (let r = MAX_FLOORS - 1; r >= 0; r--)
+    for (let c = 0; c < COLS; c++)
+      if (state.tower[r][c] && state.tower[r][c].type !== 'lobby') return r;
+  return 0;
+}
+
+function getFloorCount() {
+  let count = 0;
+  for (let r = 1; r < MAX_FLOORS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (state.tower[r][c] && state.tower[r][c].type !== 'elevator' && state.tower[r][c].type !== 'lobby') { count++; break; }
+  return count;
+}
+
+function cellToScreen(row, col) {
+  const towerLeft = (canvas.width - COLS * CELL_W * state.zoom) / 2;
+  const baseY = canvas.height - GROUND_Y_OFFSET;
+  return {
+    x: towerLeft + col * CELL_W * state.zoom,
+    y: baseY - (row + 1) * CELL_H * state.zoom + state.cameraY,
+    w: CELL_W * state.zoom, h: CELL_H * state.zoom,
+  };
+}
+
+function screenToCell(sx, sy) {
+  const towerLeft = (canvas.width - COLS * CELL_W * state.zoom) / 2;
+  const baseY = canvas.height - GROUND_Y_OFFSET;
+  const col = Math.floor((sx - towerLeft) / (CELL_W * state.zoom));
+  const row = Math.floor((baseY - sy + state.cameraY) / (CELL_H * state.zoom));
+  if (row >= 0 && row < MAX_FLOORS && col >= 0 && col < COLS) return { row, col };
+  return null;
+}
+
+function canBuild(row, col, type) {
+  if (row <= 0 || col < 0 || col >= COLS) return false;
+  if (state.tower[row][col] !== null) return false;
+  if (state.money < FLOOR_TYPES[type].cost) return false;
+  if (row > 1 && !state.tower[row-1][col]) return false;
+  if (row === 1 && !state.tower[0][col]) return false;
+  return true;
+}
+
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ── Building ──
+function buildFloor(row, col, type) {
+  if (!canBuild(row, col, type)) return false;
+  state.money -= FLOOR_TYPES[type].cost;
+  state.tower[row][col] = { type, built: state.day, occupancy: 0, satisfaction: 0 };
+
+  if (type === 'elevator') {
+    state.tower[row][col].elevatorId = -1;
+    let elev = state.elevators.find(e => e.col === col);
+    if (!elev) {
+      const elevId = state.elevators.length;
+      elev = { id: elevId, col, floors: [] };
+      state.elevators.push(elev);
+      state.elevatorCars.push({ elevatorId: elevId, floor: 0, targetFloor: 0, y: 0, state:'idle', doorOpen:0, passengers:[], waitTimer:0 });
+      state.tower[row][col].elevatorId = elevId;
+    } else {
+      state.tower[row][col].elevatorId = elev.id;
+    }
+    // Elevator connects ALL floors in this shaft
+    elev.floors = [];
+    for (let fr = 0; fr < MAX_FLOORS; fr++) {
+      if (state.tower[fr][col] && state.tower[fr][col].type === 'elevator') {
+        elev.floors.push(fr);
+      }
+    }
+    elev.floors.sort((a,b) => a - b);
+  }
+
+  state.totalBuilt++;
+  sfxBuild();
+  updateHUD();
+  addLog(`${FLOOR_TYPES[type].icon} Built ${FLOOR_TYPES[type].name} on floor ${row + 1}`, 'info');
+
+  // Auto-scroll camera
+  const topVisible = state.cameraY / (CELL_H * state.zoom);
+  if (row > topVisible + 3) state.cameraY = Math.max(0, (row - 5) * CELL_H * state.zoom);
+
+  // Build particles
+  const pos = cellToScreen(row, col);
+  for (let i = 0; i < 15; i++) {
+    state.particles.push({
+      x: pos.x + pos.w / 2, y: pos.y + pos.h / 2,
+      vx: (Math.random() - 0.5) * 150, vy: (Math.random() - 0.5) * 150,
+      type: 'build', life: 0.5 + Math.random() * 0.5, maxLife: 1,
+      color: COLORS.buildingLight[type] || '#60a5fa',
+    });
+  }
+
+  if (type !== 'elevator' && type !== 'lobby') spawnTenant(row, col, type);
+  checkAchievements();
+  return true;
+}
+
+function demolishFloor(row, col) {
+  if (row <= 0) return;
+  const cell = state.tower[row][col];
+  if (!cell) return;
+  if (cell.type === 'elevator') {
+    const elev = state.elevators.find(e => e.col === col);
+    if (elev) {
+      // Rebuild floors list from remaining elevator cells in this shaft
+      elev.floors = [];
+      for (let fr = 0; fr < MAX_FLOORS; fr++) {
+        if (state.tower[fr][col] && state.tower[fr][col].type === 'elevator') {
+          elev.floors.push(fr);
+        }
+      }
+    }
+  }
+  // Remove tenants for this floor
+  removeTenantsForFloor(row, col);
+  const refund = Math.floor(FLOOR_TYPES[cell.type].cost * 0.3);
+  state.money += refund;
+  state.tower[row][col] = null;
+  sfxDemolish();
+  addLog(`💥 Demolished floor ${row + 1}. Refunded $${(refund/1000).toFixed(0)}k`, 'expense');
+  // Recalculate population immediately
+  let pop = 0;
+  for (let r = 1; r < MAX_FLOORS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (state.tower[r][c] && FLOOR_TYPES[state.tower[r][c].type] && FLOOR_TYPES[state.tower[r][c].type].popAdd > 0)
+        pop += FLOOR_TYPES[state.tower[r][c].type].popAdd;
+  state.population = pop;
+  updateHUD();
+}
+
+// ── Tenants ──
+function spawnTenant(floor, col, type) {
+  const ft = FLOOR_TYPES[type];
+  if (!ft) return;
+  const role = ft.residents ? 'resident' : type === 'office' ? 'worker' : 'visitor';
+  const count = role === 'resident' ? Math.min(3, Math.max(1, ft.popAdd)) : type === 'hotel' ? 2 : 1;
+  for (let i = 0; i < count; i++) {
+    state.tenants.push({
+      id: `${floor}-${col}-${i}-${state.totalBuilt}`,
+      floor, col, type, homeFloor: role === 'resident' ? floor : null, homeCol: role === 'resident' ? col : null,
+      targetFloor: floor, targetCol: col, x: .2 + Math.random() * .6, targetX: .2 + Math.random() * .6,
+      state: 'idle', stateTimer: 1 + Math.random() * 3, travelTimer: 0,
+      role, mood: 68 + Math.random() * 25, energy: 60 + Math.random() * 35,
+      color: `hsl(${Math.random() * 360}, 58%, 62%)`, skin: ['#f7c99b','#d99a73','#8d5524','#f0b27a'][i % 4],
+      hair: ['#24180f','#573b2a','#18202b','#c27a48'][Math.floor(Math.random() * 4)],
+      direction: Math.random() > 0.5 ? 1 : -1, action: 'settling in', bubble: '', bubbleTimer: 0,
+    });
+  }
+  state.tower[floor][col].occupancy += count;
+}
+
+function removeTenantsForFloor(floor, col) {
+  const removed = state.tenants.filter(t => t.floor === floor && t.col === col).length;
+  if (state.tower[floor] && state.tower[floor][col]) state.tower[floor][col].occupancy = Math.max(0, state.tower[floor][col].occupancy - removed);
+  state.tenants = state.tenants.filter(t => !(t.floor === floor && t.col === col));
+}
+
+function simCells(types) {
+  const cells = [];
+  for (let r = 1; r < MAX_FLOORS; r++) for (let c = 0; c < COLS; c++) {
+    const cell = state.tower[r][c];
+    if (cell && types.includes(cell.type)) cells.push({ floor:r, col:c, type:cell.type });
+  }
+  return cells;
+}
+
+function chooseSimDestination(sim) {
+  const phase = state.dayPhase;
+  let choices;
+  if (phase === 'night' || phase === 'dawn' && sim.role === 'resident') {
+    if (sim.homeFloor != null) choices = [{ floor:sim.homeFloor, col:sim.homeCol, type:'home' }];
+  } else if (sim.role === 'worker' && phase === 'day') {
+    choices = simCells(['office']);
+  } else if (phase === 'dusk') {
+    choices = simCells(['restaurant','park','cinema','spa']);
+  } else {
+    choices = simCells(['shop','restaurant','park','cinema']);
+  }
+  if (!choices || !choices.length) choices = sim.homeFloor != null ? [{ floor:sim.homeFloor, col:sim.homeCol, type:'home' }] : [{ floor:sim.floor, col:sim.col, type:sim.type }];
+  const destination = choices[Math.floor(Math.random() * choices.length)];
+  sim.targetFloor = destination.floor; sim.targetCol = destination.col; sim.targetType = destination.type;
+  sim.targetX = .18 + Math.random() * .64;
+  sim.action = destination.type === 'home' ? 'home' : destination.type === 'office' ? 'working' : destination.type === 'park' ? 'recharging' : 'out and about';
+  sim.bubble = destination.type === 'restaurant' ? '☕' : destination.type === 'shop' ? '◎' : destination.type === 'park' ? '✦' : destination.type === 'office' ? '⌁' : '';
+  sim.bubbleTimer = sim.bubble ? 2.5 : 0;
+}
+
+function updateTenants(dt) {
+  state.tenants.forEach(t => {
+    t.stateTimer -= dt;
+    t.bubbleTimer = Math.max(0, t.bubbleTimer - dt);
+    t.energy += (t.action === 'home' ? 8 : -2) * dt;
+    t.mood += (t.action === 'recharging' || t.action === 'home' ? 1.2 : -.18) * dt;
+    t.energy = Math.max(0, Math.min(100, t.energy));
+    t.mood = Math.max(0, Math.min(100, t.mood));
+
+    if (t.state === 'riding') {
+      t.travelTimer -= dt;
+      if (t.travelTimer <= 0) {
+        t.floor = t.targetFloor; t.col = t.targetCol; t.state = 'walking'; t.stateTimer = .8;
+      }
+      return;
+    }
+    if (t.stateTimer <= 0) {
+      if (t.targetFloor !== t.floor || t.targetCol !== t.col) {
+        t.state = 'riding'; t.travelTimer = .65 + Math.abs(t.targetFloor - t.floor) * .08;
+      } else {
+        t.state = t.action === 'working' ? 'working' : t.action === 'home' ? 'resting' : 'walking';
+        t.stateTimer = 2 + Math.random() * 4;
+        if (Math.random() < .45) t.targetX = .18 + Math.random() * .64;
+      }
+      if (Math.random() < .32) chooseSimDestination(t);
+    }
+    t.x += (t.targetX - t.x) * Math.min(1, dt * (t.state === 'walking' ? 2.2 : .8));
+    if (Math.abs(t.targetX - t.x) > .01) t.direction = t.targetX > t.x ? 1 : -1;
+  });
+}
+
+// ── Elevators ──
+function updateElevators(dt) {
+  state.elevatorCars.forEach(car => {
+    if (car.state === 'idle') {
+      car.doorOpen = Math.max(0, car.doorOpen - dt * 0.5);
+      car.waitTimer -= dt;
+      if (car.waitTimer <= 0) {
+        const elev = state.elevators.find(e => e.id === car.elevatorId);
+        if (elev && elev.floors.length > 1) {
+          car.targetFloor = elev.floors[Math.floor(Math.random() * elev.floors.length)];
+          car.state = 'moving';
+          sfxElevator();
+        }
+        car.waitTimer = 2 + Math.random() * 5;
+      }
+    } else if (car.state === 'moving') {
+      const diff = car.targetFloor - car.y;
+      const step = Math.sign(diff) * ELEVATOR_SPEED * dt;
+      if (Math.abs(diff) < Math.abs(step)) {
+        car.y = car.targetFloor;
+        car.floor = car.targetFloor;
+        car.state = 'idle';
+        car.doorOpen = 1;
+      } else {
+        car.y += step;
+      }
+    }
+  });
+}
+
+// ── Economy ──
+function updateEconomy() {
+  let income = 0, pop = 0, sat = 0, satCount = 0;
+  for (let r = 1; r < MAX_FLOORS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = state.tower[r][c];
+      if (!cell || !FLOOR_TYPES[cell.type]) continue;
+      income += FLOOR_TYPES[cell.type].income;
+      if (FLOOR_TYPES[cell.type].popAdd > 0) pop += FLOOR_TYPES[cell.type].popAdd;
+
+      // Satisfaction: check nearby amenities (±2 floors, ±2 cols)
+      let amenBonus = 0;
+      let amenCount = 0;
+      for (let dr = -2; dr <= 2; dr++) {
+        for (let dc = -2; dc <= 2; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < MAX_FLOORS && nc >= 0 && nc < COLS) {
+            const n = state.tower[nr][nc];
+            if (n && FLOOR_TYPES[n.type] && FLOOR_TYPES[n.type].satisfaction > 0) {
+              amenBonus += FLOOR_TYPES[n.type].satisfaction;
+              amenCount++;
+            }
+          }
+        }
+      }
+      // Cap: max 10 amenities count, diminishing returns after 5
+      if (amenCount > 10) amenCount = 10 + (amenCount - 10) * 0.3;
+      const cappedBonus = amenCount > 0 ? Math.min(amenBonus, 30 + amenCount * 2) : 0;
+      sat += cappedBonus;
+      satCount++;
+    }
+  }
+  state.income = income;
+  state.population = pop;
+  const averageMood = state.tenants.length ? state.tenants.reduce((sum, sim) => sum + sim.mood, 0) / state.tenants.length : 70;
+  const socialPulse = (averageMood - 70) * 0.08;
+  state.satisfaction = satCount > 0 ? Math.min(100, Math.max(0, 30 + sat / satCount * 0.8 + socialPulse)) : 50;
+  state.rating = state.satisfaction > 90 ? 5 : state.satisfaction > 75 ? 4 : state.satisfaction > 60 ? 3 : state.satisfaction > 40 ? 2 : 1;
+  state.money += income;
+  state.expenses = Math.floor(state.totalBuilt * 50);
+  state.money -= state.expenses;
+}
+
+// ── Day/Night ──
+function updateDayCycle(dt) {
+  state.dayTime += dt * state.speed * 0.3;
+  if (state.dayTime >= 1) {
+    state.dayTime = 0;
+    state.day++;
+    updateEconomy();
+    sfxDayChange();
+    addLog(`📅 Day ${state.day} — Income: $${state.income.toLocaleString()}`, state.income > 0 ? 'income' : 'info');
+  }
+  const p = state.dayTime;
+  state.dayPhase = p < 0.2 ? 'dawn' : p < 0.5 ? 'day' : p < 0.7 ? 'dusk' : 'night';
+}
+
+// ── Particles & Sky ──
+function updateParticles(dt) {
+  state.particles = state.particles.filter(p => {
+    p.life -= dt;
+    p.x += (p.vx || 0) * dt;
+    p.y += (p.vy || 0) * dt;
+    if (p.type === 'leaf') { p.vx = Math.sin(state.tick * 2 + p.x) * 10; p.vy = Math.cos(state.tick * 3 + p.y) * 5; }
+    else if (p.type === 'build') { p.vy += 80 * dt; p.vx *= 0.98; }
+    else if (p.type === 'rain') { p.vy = 400; }
+    return p.life > 0;
+  });
+}
+
+function updateSky(dt) {
+  state.clouds.forEach(c => { c.x += c.speed * dt * state.speed; if (c.x > canvas.width + 200) c.x = -c.w - 50; });
+  state.cars.forEach(car => {
+    car.x += car.speed * car.dir * dt;
+    if (car.dir > 0 && car.x > canvas.width + 50) car.x = -50;
+    if (car.dir < 0 && car.x < -50) car.x = canvas.width + 50;
+  });
+}
+
+function drawSky() {
+  const p = state.dayTime;
+  const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  if (p < 0.15) { g.addColorStop(0, '#080d22'); g.addColorStop(.32, '#24345b'); g.addColorStop(.7, '#c36a78'); g.addColorStop(1, '#f7b267'); }
+  else if (p < 0.5) { g.addColorStop(0, '#075985'); g.addColorStop(.32, '#1795c7'); g.addColorStop(.68, '#83cce0'); g.addColorStop(1, '#d8e8e4'); }
+  else if (p < 0.7) { g.addColorStop(0, '#141744'); g.addColorStop(.28, '#4c397e'); g.addColorStop(.66, '#da6671'); g.addColorStop(1, '#f0ae67'); }
+  else { g.addColorStop(0, '#030617'); g.addColorStop(.38, '#081530'); g.addColorStop(.72, '#10294b'); g.addColorStop(1, '#1a3c5a'); }
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Subtle atmospheric color bloom keeps the horizon cinematic instead of flat.
+  const horizon = ctx.createLinearGradient(0, canvas.height * .2, 0, canvas.height * .78);
+  horizon.addColorStop(0, 'rgba(255,255,255,0)');
+  horizon.addColorStop(.7, p > .7 ? 'rgba(41,113,151,.08)' : 'rgba(255,225,190,.12)');
+  horizon.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = horizon; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Stars
+  if (p > 0.65 || p < 0.12) {
+    const a = p > 0.65 ? Math.min(1, (p - 0.65) / 0.15) : Math.max(0, 1 - p / 0.12);
+    state.stars.forEach(s => {
+      const tw = 0.5 + 0.5 * Math.sin(state.tick * 3 + s.twinkle);
+       ctx.fillStyle = `rgba(218,241,255,${a * tw * .82})`;
+       ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
+       if (s.size > 1.5 && tw > .92) { ctx.strokeStyle = `rgba(200,235,255,${a * .35})`; ctx.lineWidth = .5; ctx.beginPath(); ctx.moveTo(s.x-4,s.y); ctx.lineTo(s.x+4,s.y); ctx.moveTo(s.x,s.y-4); ctx.lineTo(s.x,s.y+4); ctx.stroke(); }
+     });
+  }
+
+  // Aurora ribbons add motion and depth to the night sky.
+  if (p > .68) {
+    ctx.save(); ctx.globalCompositeOperation = 'screen';
+    for (let band = 0; band < 3; band++) {
+      const ag = ctx.createLinearGradient(0, 80 + band * 50, canvas.width, 220 + band * 50);
+      ag.addColorStop(0, 'rgba(49,215,196,0)'); ag.addColorStop(.45, `rgba(${52 + band * 35},${220 - band * 25},${190 + band * 18},${.075 - band * .012})`); ag.addColorStop(1, 'rgba(127,92,255,0)');
+      ctx.fillStyle = ag; ctx.beginPath(); ctx.moveTo(-40,160+band*35);
+      for (let x = -40; x <= canvas.width + 40; x += 32) ctx.lineTo(x, 150 + band*35 + Math.sin(x*.008 + state.tick*.18 + band)*28);
+      ctx.lineTo(canvas.width+40, 280+band*35); ctx.lineTo(-40,280+band*35); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Clouds
+  const isNight = p > 0.7 || p < 0.12;
+  state.clouds.forEach(c => {
+    ctx.fillStyle = isNight ? `rgba(90,130,163,${c.opacity * .24})` : `rgba(255,255,255,${c.opacity * .72})`;
+    drawCloud(c.x, c.y, c.w, c.h);
+  });
+
+  // Sun / Moon
+  const orbX = canvas.width * 0.1 + canvas.width * 0.8 * p;
+  const orbY = canvas.height * 0.3 - Math.sin(p * Math.PI) * canvas.height * 0.25;
+  if (p > 0.12 && p < 0.72) {
+    const sg = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, 45);
+    sg.addColorStop(0, 'rgba(255,250,205,1)'); sg.addColorStop(.25, 'rgba(255,218,113,.92)'); sg.addColorStop(1, 'rgba(255,174,75,0)');
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(orbX, orbY, 45, 0, Math.PI * 2); ctx.fill();
+    const gg = ctx.createRadialGradient(orbX, orbY, 35, orbX, orbY, 150);
+    gg.addColorStop(0, 'rgba(255,230,60,0.12)'); gg.addColorStop(1, 'rgba(255,230,60,0)');
+    ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(orbX, orbY, 150, 0, Math.PI * 2); ctx.fill();
+  } else {
+    const mg = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, 22);
+    mg.addColorStop(0, 'rgba(220,230,250,1)'); mg.addColorStop(1, 'rgba(200,210,230,0)');
+    ctx.fillStyle = mg; ctx.beginPath(); ctx.arc(orbX, orbY, 22, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.arc(orbX, orbY, 10, 0, Math.PI*2); ctx.fill();
+    const mgl = ctx.createRadialGradient(orbX, orbY, 18, orbX, orbY, 90);
+    mgl.addColorStop(0, 'rgba(200,210,230,0.08)'); mgl.addColorStop(1, 'rgba(200,210,230,0)');
+    ctx.fillStyle = mgl; ctx.beginPath(); ctx.arc(orbX, orbY, 90, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawCloud(x, y, w, h) {
+  ctx.save(); ctx.shadowColor = 'rgba(12,36,60,.12)'; ctx.shadowBlur = 18;
+  ctx.beginPath(); ctx.ellipse(x + w*0.3, y, w*0.3, h*0.6, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x + w*0.55, y - h*0.15, w*0.25, h*0.5, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x + w*0.75, y + h*0.1, w*0.2, h*0.4, 0, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// ── Background City ──
+function drawBackgroundCity() {
+  const isNight = state.dayPhase === 'night' || state.dayPhase === 'dusk';
+  state.bgBuildings.forEach(b => {
+    const depth = b.layer === 0 ? .42 : .68;
+    const by = canvas.height - GROUND_Y_OFFSET - b.h * depth;
+    const bg = ctx.createLinearGradient(b.x, by, b.x, by+b.h);
+    bg.addColorStop(0, b.color); bg.addColorStop(1, 'rgba(4,13,29,.88)');
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.roundRect(b.x, by, b.w, b.h, 2); ctx.fill();
+    // Rooftop silhouettes make the skyline feel designed, not tiled.
+    ctx.fillStyle = b.color;
+    if (b.layer === 1 && b.w > 36) { ctx.fillRect(b.x+b.w*.32, by-8, b.w*.36, 8); ctx.fillRect(b.x+b.w*.47, by-18, 2, 18); }
+    if (b.windows) {
+      const ww = 3, wh = 4, gapX = b.w / (b.windowCols + 1), gapY = b.h / (b.windowRows + 1);
+      for (let wr = 0; wr < b.windowRows; wr++) {
+        for (let wc = 0; wc < b.windowCols; wc++) {
+          const wx = b.x + gapX * (wc + 1) - ww/2;
+          const wy = by + gapY * (wr + 1) - wh/2;
+           let lit = false;
+           if (isNight) {
+            lit = Math.sin(b.x * 7 + wr * 13 + wc * 17 + state.tick * 0.01) > 0.2;
+            ctx.fillStyle = lit ? 'rgba(255,210,130,.58)' : 'rgba(0,0,0,.24)';
+          } else {
+            ctx.fillStyle = 'rgba(147,197,253,0.3)';
+          }
+           ctx.fillRect(wx, wy, ww, wh);
+           if (lit && b.layer === 1) { ctx.fillStyle='rgba(255,197,112,.08)'; ctx.fillRect(wx-2,wy-2,ww+4,wh+4); }
+         }
+       }
+     }
+  });
+  const haze = ctx.createLinearGradient(0, canvas.height-GROUND_Y_OFFSET-130, 0, canvas.height-GROUND_Y_OFFSET+15);
+  haze.addColorStop(0,'rgba(174,212,226,0)'); haze.addColorStop(1,'rgba(174,212,226,.1)');
+  ctx.fillStyle = haze; ctx.fillRect(0, canvas.height-GROUND_Y_OFFSET-130, canvas.width, 145);
+}
+
+// ── Ground Level ──
+function drawGround() {
+  const baseY = canvas.height - GROUND_Y_OFFSET;
+  const gndGrad = ctx.createLinearGradient(0, baseY, 0, canvas.height);
+  gndGrad.addColorStop(0, '#1a1a2e');
+  gndGrad.addColorStop(0.3, '#16213e');
+  gndGrad.addColorStop(1, '#0f3460');
+  ctx.fillStyle = gndGrad;
+  ctx.fillRect(0, baseY, canvas.width, GROUND_Y_OFFSET);
+
+  // Layered promenade and curb.
+  ctx.fillStyle = '#6a7d8a'; ctx.fillRect(0, baseY, canvas.width, 6);
+  ctx.fillStyle = 'rgba(220,245,247,.28)'; ctx.fillRect(0, baseY, canvas.width, 1);
+  ctx.fillStyle = '#344752'; ctx.fillRect(0, baseY+6, canvas.width, 10);
+  ctx.strokeStyle = 'rgba(205,236,235,.12)'; ctx.lineWidth=1;
+  for(let x=0;x<canvas.width;x+=42){ctx.beginPath();ctx.moveTo(x,baseY+6);ctx.lineTo(x+18,baseY+16);ctx.stroke();}
+
+  // Road: layered asphalt, shoulder, and a cool reflective center strip.
+  const road = ctx.createLinearGradient(0,baseY+16,0,baseY+57);
+  road.addColorStop(0,'#1d3038'); road.addColorStop(.4,'#111f29'); road.addColorStop(1,'#0b1722');
+  ctx.fillStyle = road; ctx.fillRect(0, baseY + 16, canvas.width, 41);
+  ctx.fillStyle='rgba(160,219,218,.1)'; ctx.fillRect(0,baseY+17,canvas.width,1);
+  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(0,baseY+53,canvas.width,4);
+
+  // Lane markings
+  ctx.strokeStyle = 'rgba(170,222,218,.38)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([25, 18]);
+  ctx.beginPath();
+  ctx.moveTo(0, baseY + 36);
+  ctx.lineTo(canvas.width, baseY + 36);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Reflective lane studs.
+  ctx.fillStyle='rgba(213,246,231,.55)';
+  for(let x=18;x<canvas.width;x+=74){ctx.beginPath();ctx.arc(x,baseY+36,1,0,Math.PI*2);ctx.fill();}
+
+  // Crosswalk bars beneath the tower add a recognizable city scale.
+  const crossX = canvas.width / 2 - 190;
+  ctx.fillStyle='rgba(198,225,226,.38)';
+  for(let i=0;i<8;i++) ctx.fillRect(crossX+i*48,baseY+18,25,4);
+
+  // Perspective seams pull the flat road toward a believable vanishing point.
+  ctx.strokeStyle='rgba(154,202,207,.11)'; ctx.lineWidth=1;
+  const vanX=canvas.width*.5, vanY=baseY+16;
+  for(let i=-5;i<=5;i++) { ctx.beginPath(); ctx.moveTo(vanX+i*12,vanY); ctx.lineTo(vanX+i*115,canvas.height); ctx.stroke(); }
+  ctx.strokeStyle='rgba(212,242,236,.08)';
+  for(let i=1;i<4;i++){const yy=baseY+16+i*i*9;ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(canvas.width,yy);ctx.stroke();}
+
+  // Animated traffic with readable silhouettes, glass, tires, and light trails.
+  state.cars.forEach(car => drawTrafficCar(car, baseY + 22 + car.lane * 16));
+
+  // Compact signal heads give the road a human scale.
+  for(let i=0;i<3;i++){
+    const sx=canvas.width*.16+i*canvas.width*.34;
+    ctx.fillStyle='rgba(20,35,43,.9)'; ctx.fillRect(sx,baseY-26,3,43);
+    ctx.fillStyle='#20343b'; ctx.beginPath();ctx.roundRect(sx-4,baseY-35,11,16,3);ctx.fill();
+    const active=i===1 ? '#f4c969' : '#4c7777';
+    ctx.fillStyle=active;ctx.beginPath();ctx.arc(sx+1.5,baseY-30,2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(231,99,96,.5)';ctx.beginPath();ctx.arc(sx+1.5,baseY-25,2,0,Math.PI*2);ctx.fill();
+  }
+
+  // Streetlights
+  for (let i = 0; i < 8; i++) {
+    const sx = (i + 0.5) * (canvas.width / 8);
+    ctx.fillStyle = '#4b5563';
+    ctx.fillRect(sx, baseY - 45, 2, 50);
+    ctx.fillRect(sx - 6, baseY - 45, 14, 2);
+    if (state.dayPhase === 'night' || state.dayPhase === 'dusk') {
+      ctx.fillStyle = 'rgba(255,220,100,0.7)';
+      ctx.beginPath();
+      ctx.arc(sx + 1, baseY - 43, 3, 0, Math.PI * 2);
+      ctx.fill();
+      const lg = ctx.createRadialGradient(sx + 1, baseY - 43, 0, sx + 1, baseY - 43, 40);
+      lg.addColorStop(0, 'rgba(255,220,100,0.12)'); lg.addColorStop(1, 'rgba(255,220,100,0)');
+      ctx.fillStyle = lg;
+      ctx.beginPath(); ctx.arc(sx + 1, baseY - 43, 40, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // Repeating biophilic streetscape breaks up the hard geometry at ground level.
+  for (let i = 0; i < 10; i++) {
+    const tx = 34 + i * (canvas.width / 9.7);
+    const ty = baseY - 3;
+    ctx.fillStyle='rgba(8,23,31,.55)'; ctx.beginPath(); ctx.ellipse(tx,ty+2,16,3,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#4e3328'; ctx.fillRect(tx-2,ty-28,4,28);
+    const sway=Math.sin(state.tick*.7+i)*1.5;
+    ctx.fillStyle=state.dayPhase==='night'?'#163d43':'#1f6d62';
+    ctx.beginPath(); ctx.arc(tx+sway,ty-34,13,0,Math.PI*2); ctx.arc(tx-9+sway,ty-27,9,0,Math.PI*2); ctx.arc(tx+9+sway,ty-27,9,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=state.dayPhase==='night'?'rgba(98,229,194,.38)':'rgba(119,228,182,.28)';
+    ctx.beginPath();ctx.arc(tx-4+sway,ty-37,3,0,Math.PI*2);ctx.arc(tx+6+sway,ty-30,2,0,Math.PI*2);ctx.fill();
+  }
+}
+
+function drawTrafficCar(car, cy) {
+  const w=car.w*1.45, h=Math.max(8,w*.34), night=state.dayPhase==='night'||state.dayPhase==='dusk';
+  const x=car.x+w/2;
+  ctx.save();
+  ctx.globalAlpha=.9;
+  ctx.fillStyle='rgba(0,4,10,.62)';
+  ctx.beginPath();ctx.ellipse(x,cy+h*.72,w*.58,2.2,0,0,Math.PI*2);ctx.fill();
+  ctx.translate(x,cy);ctx.scale(car.dir,1);
+  const bx=-w/2;
+  const body=ctx.createLinearGradient(0,-h/2,0,h/2);
+  body.addColorStop(0,'rgba(255,255,255,.32)'); body.addColorStop(.18,car.color); body.addColorStop(1,'rgba(4,18,29,.9)');
+  ctx.fillStyle=body;
+  ctx.beginPath();ctx.moveTo(bx+2,-h*.1);ctx.lineTo(bx+w*.22,-h*.1);ctx.lineTo(bx+w*.34,-h*.52);ctx.lineTo(bx+w*.72,-h*.52);ctx.lineTo(bx+w*.88,-h*.1);ctx.lineTo(bx+w-1,-h*.04);ctx.quadraticCurveTo(bx+w+1,0,bx+w-1,h*.33);ctx.lineTo(bx+2,h*.33);ctx.quadraticCurveTo(bx-1,0,bx+2,-h*.1);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(228,255,251,.34)';ctx.lineWidth=.65;ctx.stroke();
+  // Cabin glass with a central pillar.
+  ctx.fillStyle='rgba(125,203,220,.32)';
+  ctx.beginPath();ctx.moveTo(bx+w*.3,-h*.42);ctx.lineTo(bx+w*.68,-h*.42);ctx.lineTo(bx+w*.8,-h*.13);ctx.lineTo(bx+w*.28,-h*.13);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(216,250,244,.18)';ctx.fillRect(bx+w*.48,-h*.4,1,h*.28);
+  // Wheels and hubs.
+  for(const wx of [bx+w*.23,bx+w*.77]){ctx.fillStyle='#061017';ctx.beginPath();ctx.arc(wx,h*.31,Math.max(1.8,w*.1),0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(181,218,215,.65)';ctx.beginPath();ctx.arc(wx,h*.31,Math.max(.7,w*.035),0,Math.PI*2);ctx.fill();}
+  // Front lamps face the direction of travel; rear lamps stay warm red.
+  ctx.fillStyle=night?'#fff2b0':'#d9f7e9';ctx.fillRect(bx+w-2,-h*.14,2,h*.16);
+  ctx.fillStyle='#ff5a68';ctx.fillRect(bx+1,-h*.14,2,h*.16);
+  if(night){const glow=ctx.createRadialGradient(bx+w+1,0,0,bx+w+1,0,18);glow.addColorStop(0,'rgba(255,239,170,.22)');glow.addColorStop(1,'rgba(255,239,170,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(bx+w+1,0,18,0,Math.PI*2);ctx.fill();}
+  ctx.restore();
+}
+
+// ── Tower Rendering ──
+function drawTower() {
+  const isNight = state.dayPhase === 'night' || state.dayPhase === 'dusk';
+
+  // Glass facade glow
+  const highestRow = getHighestFloor() + 1;
+  const towerLeft = (canvas.width - COLS * CELL_W * state.zoom) / 2;
+  const baseY = canvas.height - GROUND_Y_OFFSET;
+  const towerTop = baseY - highestRow * CELL_H * state.zoom + state.cameraY;
+  const towerW = COLS * CELL_W * state.zoom;
+
+  // Exterior glow
+  const extGlow = ctx.createLinearGradient(towerLeft - 20, 0, towerLeft + towerW + 20, 0);
+  extGlow.addColorStop(0, 'rgba(100,150,255,0)');
+  extGlow.addColorStop(0.05, isNight ? 'rgba(100,150,255,0.06)' : 'rgba(255,255,255,0.04)');
+  extGlow.addColorStop(0.5, isNight ? 'rgba(100,150,255,0.02)' : 'rgba(255,255,255,0.01)');
+  extGlow.addColorStop(0.95, isNight ? 'rgba(100,150,255,0.06)' : 'rgba(255,255,255,0.04)');
+  extGlow.addColorStop(1, 'rgba(100,150,255,0)');
+  ctx.fillStyle = extGlow;
+  ctx.fillRect(towerLeft - 20, towerTop, towerW + 40, baseY - towerTop + GROUND_Y_OFFSET);
+
+  // A continuous glass silhouette gives the tower a coherent architectural mass.
+  ctx.save();
+  ctx.shadowColor = isNight ? 'rgba(52,196,255,.22)' : 'rgba(155,230,235,.18)';
+  ctx.shadowBlur = 34;
+  const shell = ctx.createLinearGradient(towerLeft, 0, towerLeft+towerW, 0);
+  shell.addColorStop(0,'rgba(7,25,48,.42)'); shell.addColorStop(.18,'rgba(54,140,173,.1)'); shell.addColorStop(.5,'rgba(210,245,244,.07)'); shell.addColorStop(.82,'rgba(54,140,173,.1)'); shell.addColorStop(1,'rgba(7,25,48,.42)');
+  ctx.fillStyle=shell; ctx.fillRect(towerLeft, towerTop, towerW, baseY-towerTop+2);
+  ctx.restore();
+
+  for (let r = 0; r < MAX_FLOORS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = state.tower[r][c];
+      if (!cell) continue;
+      const pos = cellToScreen(r, c);
+      if (pos.y + pos.h < -100 || pos.y > canvas.height + 100) continue;
+      const pw = pos.w, ph = pos.h, px = pos.x, py = pos.y;
+
+      const colors = COLORS.building[cell.type] || '#475569';
+      const dk = COLORS.buildingDark[cell.type] || '#334155';
+       const lt = COLORS.buildingLight[cell.type] || '#64748b';
+
+       drawDepthBlock(px, py, pw, ph, colors, dk, state.zoom);
+
+      // Base fill
+       const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
+       grad.addColorStop(0, lt); grad.addColorStop(.16, colors); grad.addColorStop(.72, dk); grad.addColorStop(1, 'rgba(4,13,27,.85)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.roundRect(px + 1, py + 1, pw - 2, ph - 2, 3); ctx.fill();
+
+      // Interior dark
+       ctx.fillStyle = 'rgba(3,10,22,.42)';
+      ctx.beginPath(); ctx.roundRect(px + 3, py + 3, pw - 6, ph - 6, 2); ctx.fill();
+
+      // Ceiling + floor lines
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(px + 3, py + 3, pw - 6, 1.5);
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.fillRect(px + 3, py + ph - 4.5, pw - 6, 1.5);
+
+      // Detailed interior
+       drawFloorInterior(cell.type, px, py, pw, ph, isNight, r, c);
+
+       // Curtain-wall reflection and slim structural mullions.
+       const reflection = ctx.createLinearGradient(px, py, px + pw, py + ph);
+       reflection.addColorStop(0, 'rgba(218,255,255,.14)'); reflection.addColorStop(.22, 'rgba(255,255,255,0)'); reflection.addColorStop(.6, 'rgba(70,214,228,.045)'); reflection.addColorStop(1, 'rgba(2,10,24,.2)');
+       ctx.fillStyle=reflection; ctx.fillRect(px+2,py+2,pw-4,ph-4);
+       ctx.fillStyle='rgba(192,243,242,.11)'; ctx.fillRect(px+1,py+1,1.2,ph-2); ctx.fillRect(px+pw-2.2,py+1,1.2,ph-2);
+       ctx.fillStyle='rgba(218,251,249,.08)'; ctx.fillRect(px+pw*.5,py+3,1,ph-6);
+
+      // Hover
+      if (state.hoveredCell && state.hoveredCell.row === r && state.hoveredCell.col === c) {
+        if (state.selectedTool === 'demolish') ctx.fillStyle = 'rgba(239,68,68,0.35)';
+        else if (state.selectedTool !== 'select' && !cell) {
+          ctx.fillStyle = canBuild(r, c, state.selectedTool) ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.3)';
+        } else ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 3); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+
+      // Floor label
+      if (c === 0 && r > 0 && r % 5 === 0) {
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.font = `${9 * state.zoom}px 'JetBrains Mono', monospace`;
+        ctx.textAlign = 'right';
+        ctx.fillText(`F${r + 1}`, px - 5, py + ph / 2 + 3);
+      }
+    }
+  }
+
+  // Vertical edge lights and a moving highlight sell the height of the facade.
+  const sheenX = towerLeft + ((state.tick * 26) % (towerW + 180)) - 90;
+  const sheen = ctx.createLinearGradient(sheenX-45,0,sheenX+45,0);
+  sheen.addColorStop(0,'rgba(114,241,244,0)'); sheen.addColorStop(.5,'rgba(198,255,255,.08)'); sheen.addColorStop(1,'rgba(114,241,244,0)');
+  ctx.fillStyle=sheen; ctx.fillRect(towerLeft,towerTop,towerW,baseY-towerTop);
+
+  // Luminous crown: a clear focal point that makes the skyline feel premium.
+  if (towerTop < canvas.height - 20) {
+    const crownY = towerTop + 3;
+    ctx.fillStyle='rgba(116,240,239,.22)'; ctx.fillRect(towerLeft+18,crownY,towerW-36,3);
+    ctx.strokeStyle='rgba(181,255,251,.55)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(towerLeft+18,crownY); ctx.lineTo(towerLeft+towerW-18,crownY); ctx.stroke();
+    const pulse=.5+.5*Math.sin(state.tick*3);
+    ctx.fillStyle=`rgba(126,255,239,${.35+pulse*.35})`;
+    ctx.shadowColor='#5ff4dd'; ctx.shadowBlur=12;
+    ctx.beginPath();ctx.arc(towerLeft+24,crownY+1,2,0,Math.PI*2);ctx.arc(towerLeft+towerW-24,crownY+1,2,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+  }
+
+  // Construction crane at top
+  drawCrane(towerLeft, towerTop, towerW);
+
+  // Elevator cars
+  state.elevatorCars.forEach(car => {
+    const elev = state.elevators.find(e => e.id === car.elevatorId);
+    if (!elev) return;
+    const pos = cellToScreen(car.y, elev.col);
+    if (pos.y < -200 || pos.y > canvas.height + 200) return;
+    const pw = pos.w, ph = pos.h, px = pos.x, py = pos.y;
+
+    ctx.fillStyle='rgba(0,5,15,.65)';
+    ctx.beginPath(); ctx.ellipse(px+pw/2,py+ph*.92,pw*.24,ph*.08,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#0a1020';
+    ctx.fillRect(px + pw * 0.35, py, pw * 0.3, ph);
+
+    ctx.strokeStyle = 'rgba(148,163,184,0.2)'; ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(px + pw*0.45, py); ctx.lineTo(px + pw*0.45, py + ph);
+    ctx.moveTo(px + pw*0.55, py); ctx.lineTo(px + pw*0.55, py + ph);
+    ctx.stroke();
+
+    const carW = pw * 0.52, carH = ph * 0.72;
+    const carX = px + (pw - carW)/2, carY = py + (ph - carH)/2;
+    const cg = ctx.createLinearGradient(carX, carY, carX, carY + carH);
+    cg.addColorStop(0, '#cbd5e1'); cg.addColorStop(0.5, '#94a3b8'); cg.addColorStop(1, '#64748b');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.roundRect(carX, carY, carW, carH, 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    const doorOpen = car.doorOpen;
+    if (doorOpen > 0.1) {
+      const dw = carW * 0.38 * doorOpen;
+      ctx.fillStyle = '#0a1020';
+      ctx.fillRect(carX + 2, carY + 3, dw, carH - 6);
+      ctx.fillRect(carX + carW - dw - 2, carY + 3, dw, carH - 6);
+      ctx.fillStyle = 'rgba(255,255,255,0.1)';
+      ctx.fillRect(carX + dw, carY + 3, 1, carH - 6);
+      ctx.fillRect(carX + carW - dw, carY + 3, 1, carH - 6);
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.fillRect(carX + carW/2 - 0.5, carY + 3, 1, carH - 6);
+    }
+
+    const ic = car.state === 'moving' ? '#4ade80' : '#fbbf24';
+    ctx.fillStyle = ic;
+    ctx.beginPath(); ctx.arc(carX + carW/2, carY + 3, 1.5, 0, Math.PI * 2); ctx.fill();
+    const ig = ctx.createRadialGradient(carX + carW/2, carY + 3, 0, carX + carW/2, carY + 3, 6);
+    ig.addColorStop(0, ic + '40'); ig.addColorStop(1, ic + '00');
+    ctx.fillStyle = ig;
+    ctx.beginPath(); ctx.arc(carX + carW/2, carY + 3, 6, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // Tenants
+  state.tenants.forEach(t => {
+    const pos = cellToScreen(t.floor, t.col);
+    if (pos.y < -50 || pos.y > canvas.height + 50) return;
+    const s = state.zoom;
+    const px2 = pos.x + t.x * pos.w, bob = t.state === 'walking' ? Math.sin(state.tick*9+t.x*10)*s : 0;
+    const py2 = pos.y + pos.h * 0.55 + bob;
+    ctx.save(); ctx.globalAlpha = t.state === 'riding' ? .48 : 1;
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath(); ctx.ellipse(px2+2*s, py2 + 4*s, 4*s, 1.4*s, 0, 0, Math.PI*2); ctx.fill();
+
+    // A cool rim light separates occupants from the dark glass interior.
+    ctx.fillStyle='rgba(177,245,239,.2)';
+    ctx.beginPath(); ctx.arc(px2-2*s, py2-4*s, 3.2*s, 0, Math.PI*2); ctx.fill();
+
+    // Body, arms, and head vary by role so a floor reads as occupied.
+    ctx.fillStyle = t.color;
+    ctx.beginPath(); ctx.roundRect(px2 - 2.8*s, py2 - 2*s, 5.6*s, 7*s, 2); ctx.fill();
+    ctx.strokeStyle=t.color;ctx.lineWidth=1.3*s;
+    ctx.beginPath();ctx.moveTo(px2-2*s,py2+1*s);ctx.lineTo(px2-4*s,py2+3*s);ctx.moveTo(px2+2*s,py2+1*s);ctx.lineTo(px2+4*s,py2+3*s);ctx.stroke();
+    ctx.fillStyle = t.skin || '#f3c59b';
+    ctx.beginPath(); ctx.arc(px2, py2 - 5*s, 3*s, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = t.hair || '#24180f';
+    ctx.beginPath(); ctx.arc(px2, py2 - 6.5*s, 2.7*s, Math.PI, 0); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.arc(px2-1*s,py2-5.3*s,.55*s,0,Math.PI*2);ctx.fill();
+
+    // The small activity bubble is the only explicit UI-like sim feedback.
+    if (t.bubbleTimer > 0 && t.bubble) {
+      const bx=px2+7*s, by=py2-13*s;
+      ctx.fillStyle='rgba(232,252,247,.9)';ctx.beginPath();ctx.roundRect(bx-5*s,by-5*s,11*s,9*s,3*s);ctx.fill();
+      ctx.fillStyle='#173342';ctx.font=`${Math.max(6,8*s)}px 'DM Sans',sans-serif`;ctx.textAlign='center';ctx.fillText(t.bubble,bx,by+2*s);
+    }
+    ctx.restore();
+  });
+
+  // Particles
+  state.particles.forEach(p => {
+    const a = Math.max(0, p.life / p.maxLife);
+    if (p.type === 'build') {
+      ctx.fillStyle = p.color || '#60a5fa';
+      ctx.globalAlpha = a;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3 * a, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    } else if (p.type === 'leaf') {
+      ctx.fillStyle = `rgba(34,197,94,${a * 0.6})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+
+  // Tiny drifting motes create scale in the open air around the tower.
+  ctx.fillStyle='rgba(185,241,239,.26)';
+  for(let i=0;i<18;i++){
+    const mx=(i*97+state.tick*(8+i%3)*state.speed)%canvas.width;
+    const my=(i*53+Math.sin(state.tick*.4+i)*18+canvas.height*.18)%(canvas.height*.7);
+    ctx.beginPath();ctx.arc(mx,my,((i%3)+1)*.45,0,Math.PI*2);ctx.fill();
+  }
+}
+
+// Visual-only extrusion. The grid remains a front-facing 2D grid for precise input,
+// while the offset planes give every module a physical presence in the skyline.
+function drawDepthBlock(x, y, w, h, color, dark, scale) {
+  const d = Math.max(3, 6 * scale);
+  ctx.save();
+  ctx.shadowColor='rgba(0,4,14,.5)'; ctx.shadowBlur=8*scale; ctx.shadowOffsetX=d*.8; ctx.shadowOffsetY=d*1.2;
+  ctx.fillStyle='rgba(3,12,24,.72)';
+  ctx.beginPath(); ctx.roundRect(x+d*.7,y+d,w-1,h-1,3); ctx.fill();
+  ctx.shadowColor='transparent';
+  const side=ctx.createLinearGradient(x+w,y,x+w+d,y+h);
+  side.addColorStop(0,color); side.addColorStop(1,dark);
+  ctx.fillStyle=side;
+  ctx.beginPath(); ctx.moveTo(x+w-1,y+2); ctx.lineTo(x+w+d,y+d+2); ctx.lineTo(x+w+d,y+h+d); ctx.lineTo(x+w-1,y+h); ctx.closePath(); ctx.fill();
+  const top=ctx.createLinearGradient(x,y,x+w,y-d);
+  top.addColorStop(0,'rgba(185,246,242,.24)'); top.addColorStop(1,'rgba(65,160,184,.08)');
+  ctx.fillStyle=top;
+  ctx.beginPath(); ctx.moveTo(x+2,y+1); ctx.lineTo(x+w-2,y+1); ctx.lineTo(x+w+d-2,y+d); ctx.lineTo(x+d+2,y+d); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// ── Construction Crane ──
+function drawCrane(towerLeft, towerTop, towerW) {
+  if (getHighestFloor() < 3) return;
+  const cx = towerLeft + towerW + 15;
+  const cy = towerTop + 20;
+
+  // Mast
+  ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, cy + 60); ctx.lineTo(cx, cy - 30); ctx.stroke();
+
+  // Boom
+  state.craneAngle += 0.003 * state.speed;
+  const boomLen = 80;
+  const boomEndX = cx + Math.cos(state.craneAngle) * boomLen;
+  const boomEndY = cy - 30 + Math.sin(state.craneAngle) * 10;
+  ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx, cy - 30); ctx.lineTo(boomEndX, boomEndY); ctx.stroke();
+
+  // Cable
+  ctx.strokeStyle = 'rgba(251,191,36,0.4)'; ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(boomEndX, boomEndY); ctx.lineTo(boomEndX, boomEndY + 25); ctx.stroke();
+
+  // Hook
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath(); ctx.arc(boomEndX, boomEndY + 27, 2, 0, Math.PI * 2); ctx.fill();
+
+  // Warning light
+  const blink = Math.sin(state.tick * 5) > 0;
+  if (blink) {
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath(); ctx.arc(cx, cy - 32, 3, 0, Math.PI * 2); ctx.fill();
+    const rg = ctx.createRadialGradient(cx, cy - 32, 0, cx, cy - 32, 10);
+    rg.addColorStop(0, 'rgba(239,68,68,0.3)'); rg.addColorStop(1, 'rgba(239,68,68,0)');
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(cx, cy - 32, 10, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// ═══════════════════════════════════════════
+//  Detailed Floor Interiors
+// ═══════════════════════════════════════════
+
+function drawFloorInterior(type, x, y, w, h, isNight, row, col) {
+  const rng = mulberry32(row * 1000 + col * 7);
+  // Every room gets a shallow floor plane, creating depth without turning the
+  // construction grid into a perspective interface.
+  const floor = ctx.createLinearGradient(x, y+h*.62, x, y+h);
+  floor.addColorStop(0, 'rgba(7,17,30,.04)'); floor.addColorStop(1, 'rgba(2,8,18,.4)');
+  ctx.fillStyle=floor; ctx.fillRect(x+3,y+h*.58,w-6,h*.38);
+  ctx.strokeStyle='rgba(188,239,235,.09)'; ctx.lineWidth=.6;
+  for(let i=0;i<3;i++){const ly=y+h*(.72+i*.08);ctx.beginPath();ctx.moveTo(x+5,ly);ctx.lineTo(x+w-5,ly);ctx.stroke();}
+  switch (type) {
+    case 'office': drawOffice(x,y,w,h,isNight,rng); break;
+    case 'residence': drawResidence(x,y,w,h,isNight,rng); break;
+    case 'hotel': drawHotel(x,y,w,h,isNight,rng); break;
+    case 'shop': drawShop(x,y,w,h,isNight,rng); break;
+    case 'restaurant': drawRestaurant(x,y,w,h,isNight,rng); break;
+    case 'cinema': drawCinema(x,y,w,h,isNight,rng); break;
+    case 'park': drawPark(x,y,w,h,isNight,rng); break;
+    case 'spa': drawSpa(x,y,w,h,isNight,rng); break;
+    case 'elevator': drawElevatorInterior(x,y,w,h); break;
+    case 'lobby': drawLobby(x,y,w,h,isNight,rng); break;
+  }
+}
+
+function drawOffice(x, y, w, h, isNight, rng) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  // Ceiling lights
+  for (let i = 0; i < 2; i++) {
+    const lx = ix + iw*0.2 + i*iw*0.45;
+    ctx.fillStyle = isNight ? 'rgba(255,255,230,0.6)' : 'rgba(255,255,255,0.12)';
+    ctx.fillRect(lx, iy+1, iw*0.18, 1.5);
+    if (isNight) {
+      const lg = ctx.createRadialGradient(lx+iw*0.09, iy+2, 0, lx+iw*0.09, iy+2, iw*0.18);
+      lg.addColorStop(0, 'rgba(255,255,200,0.1)'); lg.addColorStop(1, 'rgba(255,255,200,0)');
+      ctx.fillStyle = lg; ctx.fillRect(lx-iw*0.1, iy, iw*0.38, ih*0.45);
+    }
+  }
+  // Desks + monitors
+  const deskY = iy+ih*0.55;
+  for (let i = 0; i < 2; i++) {
+    const dx = ix+iw*0.08+i*iw*0.48, dw = iw*0.32;
+    ctx.fillStyle = '#92400e'; ctx.fillRect(dx, deskY, dw, ih*0.1);
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(dx, deskY, dw, 1);
+    ctx.fillStyle = '#78350f';
+    ctx.fillRect(dx+1, deskY+ih*0.1, 1, ih*0.2);
+    ctx.fillRect(dx+dw-2, deskY+ih*0.1, 1, ih*0.2);
+    // Monitor
+    const mw2 = dw*0.35, mh2 = ih*0.18;
+    const mx2 = dx+dw*0.3, my2 = deskY-mh2+1;
+    ctx.fillStyle = '#1e293b'; ctx.fillRect(mx2, my2, mw2, mh2);
+    ctx.fillStyle = isNight ? 'rgba(100,180,255,0.45)' : 'rgba(100,180,255,0.2)';
+    ctx.fillRect(mx2+1, my2+1, mw2-2, mh2-3);
+    ctx.fillStyle = '#475569'; ctx.fillRect(mx2+mw2*0.4, my2+mh2, mw2*0.2, 2);
+    // Chair
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(dx+dw*0.35, deskY+ih*0.1+ih*0.15, iw*0.1, ih*0.08);
+  }
+  // Water cooler
+  ctx.fillStyle = '#60a5fa'; ctx.fillRect(ix+iw*0.9, iy+ih*0.4, iw*0.06, ih*0.15);
+  ctx.fillStyle = '#bfdbfe'; ctx.fillRect(ix+iw*0.9, iy+ih*0.35, iw*0.06, ih*0.08);
+  // Plant
+  ctx.fillStyle = '#15803d';
+  ctx.beginPath(); ctx.arc(ix+3, iy+ih*0.45, 3, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#713f12'; ctx.fillRect(ix+1.5, iy+ih*0.48, 2, ih*0.12);
+}
+
+function drawResidence(x, y, w, h, isNight, rng) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  // Window
+  const winW = iw*0.22, winH = ih*0.45;
+  const winX = ix+iw*0.68, winY = iy+4;
+  ctx.fillStyle = isNight ? '#0c1525' : '#87ceeb';
+  ctx.fillRect(winX, winY, winW, winH);
+  ctx.fillStyle = 'rgba(190,130,130,0.5)';
+  ctx.fillRect(winX-2, winY-1, winW*0.18, winH+2);
+  ctx.fillRect(winX+winW*0.82, winY-1, winW*0.18, winH+2);
+  ctx.fillStyle = '#92400e'; ctx.fillRect(winX-3, winY-2, winW+6, 1.5);
+  if (isNight) { ctx.fillStyle = 'rgba(255,220,100,0.12)'; ctx.fillRect(winX, winY, winW, winH); }
+  // Bed
+  const bedX = ix+iw*0.05, bedY = iy+ih*0.42, bedW = iw*0.45, bedH = ih*0.42;
+  ctx.fillStyle = '#e2e8f0'; ctx.beginPath(); ctx.roundRect(bedX, bedY, bedW, bedH, 2); ctx.fill();
+  ctx.fillStyle = isNight ? '#6366f1' : '#818cf8';
+  ctx.fillRect(bedX+1, bedY+bedH*0.3, bedW-2, bedH*0.7);
+  ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(bedX+1, bedY+bedH*0.3, bedW-2, 1.5);
+  ctx.fillStyle = '#f1f5f9';
+  ctx.beginPath(); ctx.roundRect(bedX+bedW*0.05, bedY+2, bedW*0.35, bedH*0.22, 3); ctx.fill();
+  ctx.fillStyle = '#cbd5e1';
+  ctx.beginPath(); ctx.roundRect(bedX+bedW*0.5, bedY+2, bedW*0.35, bedH*0.22, 3); ctx.fill();
+  // Nightstand + lamp
+  ctx.fillStyle = '#78350f'; ctx.fillRect(ix+iw*0.52, iy+ih*0.55, iw*0.1, ih*0.25);
+  ctx.fillStyle = '#fbbf24'; ctx.fillRect(ix+iw*0.54, iy+ih*0.47, iw*0.04, ih*0.08);
+  if (isNight) {
+    const lg = ctx.createRadialGradient(ix+iw*0.56, iy+ih*0.47, 0, ix+iw*0.56, iy+ih*0.47, iw*0.12);
+    lg.addColorStop(0, 'rgba(251,191,36,0.15)'); lg.addColorStop(1, 'rgba(251,191,36,0)');
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(ix+iw*0.56, iy+ih*0.47, iw*0.12, 0, Math.PI*2); ctx.fill();
+  }
+  // Rug
+  ctx.fillStyle = 'rgba(168,85,247,0.15)';
+  ctx.beginPath(); ctx.roundRect(ix+iw*0.2, iy+ih*0.87, iw*0.4, ih*0.08, 2); ctx.fill();
+}
+
+function drawHotel(x, y, w, h, isNight, rng) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  // Room sign
+  ctx.fillStyle = '#1e293b'; ctx.fillRect(ix+1, iy+1, iw*0.12, ih*0.12);
+  ctx.fillStyle = '#fbbf24'; ctx.font = `bold ${Math.max(5,ih*0.07)}px 'JetBrains Mono',monospace`; ctx.textAlign = 'center';
+  ctx.fillText(`${100 + Math.floor(rng()*90)}`, ix+iw*0.06, iy+ih*0.09);
+  // Bed
+  const bedX = ix+iw*0.08, bedY = iy+ih*0.36, bedW = iw*0.48, bedH = ih*0.46;
+  ctx.fillStyle = '#78350f'; ctx.fillRect(bedX, bedY-ih*0.05, bedW, ih*0.07);
+  ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.roundRect(bedX, bedY, bedW, bedH, 3); ctx.fill();
+  ctx.fillStyle = '#f1f5f9'; ctx.fillRect(bedX+2, bedY+bedH*0.2, bedW-4, bedH*0.8);
+  ctx.fillStyle = '#e2e8f0'; ctx.fillRect(bedX+2, bedY+bedH*0.2, bedW-4, 1);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.roundRect(bedX+4, bedY+3, bedW*0.35, bedH*0.18, 3); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(bedX+bedW*0.45, bedY+3, bedW*0.35, bedH*0.18, 3); ctx.fill();
+  // Nightstand
+  ctx.fillStyle = '#78350f'; ctx.fillRect(ix+iw*0.58, iy+ih*0.5, iw*0.1, ih*0.28);
+  ctx.fillStyle = '#1e293b'; ctx.fillRect(ix+iw*0.6, iy+ih*0.48, iw*0.06, ih*0.04);
+  ctx.fillStyle = '#fbbf24'; ctx.fillRect(ix+iw*0.62, iy+ih*0.38, iw*0.03, ih*0.1);
+  if (isNight) {
+    const lg = ctx.createRadialGradient(ix+iw*0.63, iy+ih*0.38, 0, ix+iw*0.63, iy+ih*0.38, iw*0.1);
+    lg.addColorStop(0, 'rgba(251,191,36,0.12)'); lg.addColorStop(1, 'rgba(251,191,36,0)');
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(ix+iw*0.63, iy+ih*0.38, iw*0.1, 0, Math.PI*2); ctx.fill();
+  }
+  // Wardrobe
+  ctx.fillStyle = '#78350f'; ctx.fillRect(ix+iw*0.78, iy+ih*0.18, iw*0.18, ih*0.62);
+  ctx.fillStyle = '#92400e'; ctx.fillRect(ix+iw*0.78, iy+ih*0.18, iw*0.18, ih*0.02);
+  ctx.fillStyle = '#fbbf24'; ctx.fillRect(ix+iw*0.86, iy+ih*0.42, iw*0.02, ih*0.08);
+}
+
+function drawShop(x, y, w, h, isNight, rng) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  // Shelves
+  for (let s = 0; s < 3; s++) {
+    const sy = iy+ih*0.08+s*ih*0.14;
+    ctx.fillStyle = '#78350f'; ctx.fillRect(ix+iw*0.02, sy, iw*0.52, 1.5);
+    for (let p = 0; p < 4; p++) {
+      const px2 = ix+iw*0.04+p*iw*0.12;
+      const cl = ['#ef4444','#3b82f6','#22c55e','#f59e0b','#ec4899','#8b5cf6'];
+      ctx.fillStyle = cl[(s*4+p)%cl.length];
+      ctx.beginPath(); ctx.roundRect(px2, sy-ih*0.06-rng()*ih*0.03, iw*0.07, ih*0.06+rng()*ih*0.03, 1); ctx.fill();
+    }
+  }
+  // Counter
+  ctx.fillStyle = '#92400e'; ctx.fillRect(ix+iw*0.6, iy+ih*0.48, iw*0.35, ih*0.3);
+  ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(ix+iw*0.6, iy+ih*0.48, iw*0.35, 1.5);
+  // Register
+  ctx.fillStyle = '#1e293b'; ctx.fillRect(ix+iw*0.7, iy+ih*0.44, iw*0.14, ih*0.06);
+  ctx.fillStyle = '#4ade80'; ctx.fillRect(ix+iw*0.72, iy+ih*0.45, iw*0.1, ih*0.03);
+  // SALE sign
+  ctx.fillStyle = '#ef4444'; ctx.fillRect(ix+iw*0.68, iy+ih*0.04, iw*0.22, ih*0.12);
+  ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(5,ih*0.06)}px 'Inter',sans-serif`; ctx.textAlign = 'center';
+  ctx.fillText('SALE', ix+iw*0.79, iy+ih*0.12);
+  // Bags
+  ctx.fillStyle = '#fbbf24'; ctx.fillRect(ix+iw*0.1, iy+ih*0.82, iw*0.06, ih*0.12);
+  ctx.fillRect(ix+iw*0.18, iy+ih*0.85, iw*0.05, ih*0.1);
+}
+
+function drawRestaurant(x, y, w, h, isNight, rng) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  // Pendant lights
+  for (let i = 0; i < 2; i++) {
+    const lx = ix+iw*0.25+i*iw*0.4;
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(lx, iy+1); ctx.lineTo(lx, iy+ih*0.12); ctx.stroke();
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath(); ctx.moveTo(lx-iw*0.04, iy+ih*0.12); ctx.lineTo(lx+iw*0.04, iy+ih*0.12);
+    ctx.lineTo(lx+iw*0.025, iy+ih*0.08); ctx.lineTo(lx-iw*0.025, iy+ih*0.08); ctx.closePath(); ctx.fill();
+    if (isNight) {
+      const lg = ctx.createRadialGradient(lx, iy+ih*0.14, 0, lx, iy+ih*0.14, iw*0.1);
+      lg.addColorStop(0, 'rgba(251,191,36,0.12)'); lg.addColorStop(1, 'rgba(251,191,36,0)');
+      ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx, iy+ih*0.14, iw*0.1, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  // Tables
+  for (let t = 0; t < 2; t++) {
+    const tx = ix+iw*0.2+t*iw*0.45, ty = iy+ih*0.55;
+    ctx.fillStyle = '#f1f5f9';
+    ctx.beginPath(); ctx.ellipse(tx, ty, iw*0.11, ih*0.055, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#78350f'; ctx.fillRect(tx-0.5, ty+ih*0.06, 1, ih*0.2);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.beginPath(); ctx.arc(tx, ty-1, iw*0.035, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath(); ctx.arc(tx, ty-1, iw*0.012, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#78350f';
+    ctx.fillRect(tx-iw*0.07, ty+ih*0.03, iw*0.035, ih*0.1);
+    ctx.fillRect(tx+iw*0.035, ty+ih*0.03, iw*0.035, ih*0.1);
+  }
+  // Wine rack
+  ctx.fillStyle = '#78350f'; ctx.fillRect(ix+iw*0.82, iy+ih*0.12, iw*0.14, ih*0.5);
+  for (let b = 0; b < 3; b++) {
+    ctx.fillStyle = b%2===0 ? '#7c3aed' : '#dc2626';
+    ctx.fillRect(ix+iw*0.84, iy+ih*0.15+b*ih*0.14, iw*0.1, ih*0.03);
+  }
+}
+
+function drawCinema(x, y, w, h, isNight, rng) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  // Screen
+  const scrW = iw*0.4, scrH = ih*0.32;
+  ctx.fillStyle = '#0f172a'; ctx.fillRect(ix+iw*0.3, iy+3, scrW, scrH);
+  ctx.fillStyle = 'rgba(147,197,253,0.12)'; ctx.fillRect(ix+iw*0.3, iy+3, scrW, scrH);
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 0.5; ctx.strokeRect(ix+iw*0.3, iy+3, scrW, scrH);
+  if (isNight) {
+    ctx.fillStyle = 'rgba(255,255,255,0.02)';
+    ctx.beginPath(); ctx.moveTo(ix+iw*0.5, iy+scrH+5);
+    ctx.lineTo(ix+iw*0.3, iy+3); ctx.lineTo(ix+iw*0.3+scrW, iy+3); ctx.closePath(); ctx.fill();
+  }
+  // Seats
+  for (let row2 = 0; row2 < 2; row2++) {
+    const sy = iy+ih*0.48+row2*ih*0.2;
+    for (let s = 0; s < 5; s++) {
+      const sx = ix+iw*0.06+s*iw*0.17;
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath(); ctx.roundRect(sx, sy, iw*0.1, ih*0.12, 1); ctx.fill();
+      ctx.fillStyle = '#b91c1c'; ctx.fillRect(sx, sy-ih*0.04, iw*0.1, ih*0.05);
+    }
+  }
+  // Popcorn
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath(); ctx.moveTo(ix+iw*0.88, iy+ih*0.68); ctx.lineTo(ix+iw*0.95, iy+ih*0.68);
+  ctx.lineTo(ix+iw*0.93, iy+ih*0.82); ctx.lineTo(ix+iw*0.9, iy+ih*0.82); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#fef3c7';
+  ctx.beginPath(); ctx.arc(ix+iw*0.915, iy+ih*0.66, iw*0.02, 0, Math.PI*2); ctx.fill();
+}
+
+function drawPark(x, y, w, h, isNight, rng) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  ctx.fillStyle = '#166534'; ctx.fillRect(ix, iy+ih*0.68, iw, ih*0.28);
+  ctx.fillStyle = '#15803d';
+  for (let g = 0; g < 8; g++) {
+    ctx.fillRect(ix+rng()*iw, iy+ih*0.7+rng()*ih*0.2, 1, 3);
+  }
+  const fc = ['#f472b6','#fbbf24','#c084fc','#fb923c'];
+  for (let f = 0; f < 4; f++) {
+    ctx.fillStyle = fc[f];
+    ctx.beginPath(); ctx.arc(ix+iw*0.1+f*iw*0.25, iy+ih*0.73, 2, 0, Math.PI*2); ctx.fill();
+  }
+  for (let t = 0; t < 2; t++) {
+    const tx = ix+iw*0.2+t*iw*0.5, ty = iy+ih*0.32;
+    ctx.fillStyle = '#713f12'; ctx.fillRect(tx-1.5, ty+ih*0.1, 3, ih*0.25);
+    ctx.fillStyle = '#15803d'; ctx.beginPath(); ctx.arc(tx, ty, iw*0.1, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#22c55e'; ctx.beginPath(); ctx.arc(tx-2, ty-2, iw*0.07, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4ade80'; ctx.beginPath(); ctx.arc(tx+2, ty-3, iw*0.05, 0, Math.PI*2); ctx.fill();
+  }
+  // Bench
+  ctx.fillStyle = '#78350f'; ctx.fillRect(ix+iw*0.35, iy+ih*0.6, iw*0.3, 2);
+  ctx.fillRect(ix+iw*0.36, iy+ih*0.62, 1.5, ih*0.06);
+  ctx.fillRect(ix+iw*0.62, iy+ih*0.62, 1.5, ih*0.06);
+  // Fountain
+  ctx.fillStyle = '#60a5fa';
+  ctx.beginPath(); ctx.ellipse(ix+iw*0.5, iy+ih*0.48+iw*0.04, iw*0.08, ih*0.035, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#94a3b8'; ctx.fillRect(ix+iw*0.5-1, iy+ih*0.4, 2, ih*0.08);
+  ctx.fillStyle = 'rgba(147,197,253,0.5)';
+  for (let d = 0; d < 3; d++) {
+    ctx.beginPath(); ctx.arc(ix+iw*0.5-3+d*3, iy+ih*0.38-d*2, 1, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+function drawSpa(x, y, w, h, isNight, rng) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  const ag = ctx.createRadialGradient(ix+iw*0.5, iy+ih*0.5, 0, ix+iw*0.5, iy+ih*0.5, iw*0.5);
+  ag.addColorStop(0, 'rgba(251,191,36,0.05)'); ag.addColorStop(1, 'rgba(251,191,36,0)');
+  ctx.fillStyle = ag; ctx.fillRect(ix, iy, iw, ih);
+  // Massage bed
+  ctx.fillStyle = '#f1f5f9';
+  ctx.beginPath(); ctx.roundRect(ix+iw*0.15, iy+ih*0.38, iw*0.5, ih*0.35, 3); ctx.fill();
+  ctx.fillStyle = '#e2e8f0';
+  ctx.beginPath(); ctx.roundRect(ix+iw*0.16, iy+ih*0.4, iw*0.12, ih*0.08, 2); ctx.fill();
+  // Candles
+  for (let c2 = 0; c2 < 3; c2++) {
+    const cx2 = ix+iw*0.75+c2*iw*0.07, cy2 = iy+ih*0.52;
+    ctx.fillStyle = '#f5f5f4'; ctx.fillRect(cx2, cy2, iw*0.025, ih*0.12);
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath(); ctx.ellipse(cx2+iw*0.0125, cy2-ih*0.02, iw*0.012, ih*0.03, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath(); ctx.ellipse(cx2+iw*0.0125, cy2-ih*0.015, iw*0.005, ih*0.015, 0, 0, Math.PI*2); ctx.fill();
+    const cg2 = ctx.createRadialGradient(cx2+iw*0.0125, cy2-ih*0.02, 0, cx2+iw*0.0125, cy2-ih*0.02, iw*0.06);
+    cg2.addColorStop(0, 'rgba(251,191,36,0.08)'); cg2.addColorStop(1, 'rgba(251,191,36,0)');
+    ctx.fillStyle = cg2; ctx.beginPath(); ctx.arc(cx2+iw*0.0125, cy2-ih*0.02, iw*0.06, 0, Math.PI*2); ctx.fill();
+  }
+  // Zen stones
+  ctx.fillStyle = '#94a3b8';
+  ctx.beginPath(); ctx.ellipse(ix+iw*0.08, iy+ih*0.78, iw*0.04, ih*0.03, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#64748b';
+  ctx.beginPath(); ctx.ellipse(ix+iw*0.08, iy+ih*0.72, iw*0.03, ih*0.025, 0, 0, Math.PI*2); ctx.fill();
+  // Steam
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+  for (let s2 = 0; s2 < 3; s2++) {
+    ctx.beginPath(); ctx.moveTo(ix+iw*0.3+s2*iw*0.1, iy+ih*0.33);
+    ctx.quadraticCurveTo(ix+iw*0.3+s2*iw*0.1+3, iy+ih*0.23, ix+iw*0.3+s2*iw*0.1-2, iy+ih*0.13);
+    ctx.stroke();
+  }
+  // Bamboo
+  ctx.fillStyle = '#65a30d'; ctx.fillRect(ix+iw*0.9, iy+ih*0.18, 2, ih*0.62);
+  for (let b2 = 0; b2 < 3; b2++) {
+    ctx.fillStyle = '#84cc16';
+    ctx.beginPath(); ctx.ellipse(ix+iw*0.92, iy+ih*0.22+b2*ih*0.15, iw*0.03, ih*0.02, 0.3, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+function drawElevatorInterior(x, y, w, h) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(ix+iw*0.35, iy, iw*0.3, ih);
+  ctx.strokeStyle = 'rgba(148,163,184,0.15)'; ctx.lineWidth = 0.5; ctx.setLineDash([3,3]);
+  ctx.beginPath();
+  ctx.moveTo(ix+iw*0.42, iy); ctx.lineTo(ix+iw*0.42, iy+ih);
+  ctx.moveTo(ix+iw*0.58, iy); ctx.lineTo(ix+iw*0.58, iy+ih);
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#1e293b'; ctx.fillRect(ix+iw*0.02, iy+ih*0.1, iw*0.12, ih*0.25);
+  ctx.fillStyle = '#0f172a'; ctx.fillRect(ix+iw*0.03, iy+ih*0.12, iw*0.1, ih*0.2);
+  for (let l = 0; l < 4; l++) {
+    ctx.fillStyle = l===0 ? '#4ade80' : 'rgba(255,255,255,0.06)';
+    ctx.beginPath(); ctx.arc(ix+iw*0.08, iy+ih*0.16+l*ih*0.05, 1.5, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(148,163,184,0.12)'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(ix+iw*0.5, iy); ctx.lineTo(ix+iw*0.5, iy+ih); ctx.stroke();
+}
+
+function drawLobby(x, y, w, h, isNight, rng) {
+  const iw = w-8, ih = h-8, ix = x+4, iy = y+4;
+  // Tiles
+  for (let tx = 0; tx < 4; tx++) for (let ty2 = 0; ty2 < 2; ty2++) {
+    if ((tx+ty2)%2===0) { ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fillRect(ix+tx*iw*0.25, iy+ih*0.68+ty2*ih*0.14, iw*0.25, ih*0.14); }
+  }
+  // Reception
+  ctx.fillStyle = '#1e293b'; ctx.fillRect(ix+iw*0.55, iy+ih*0.43, iw*0.4, ih*0.25);
+  ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(ix+iw*0.55, iy+ih*0.43, iw*0.4, 1.5);
+  ctx.fillStyle = '#fde68a';
+  ctx.beginPath(); ctx.arc(ix+iw*0.75, iy+ih*0.36, 2, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#3b82f6'; ctx.fillRect(ix+iw*0.735, iy+ih*0.38, 3, ih*0.06);
+  // Plants
+  for (let p = 0; p < 2; p++) {
+    const plx = ix+iw*0.05+p*iw*0.9;
+    ctx.fillStyle = '#78350f'; ctx.fillRect(plx, iy+ih*0.58, iw*0.06, ih*0.15);
+    ctx.fillStyle = '#15803d';
+    ctx.beginPath(); ctx.arc(plx+iw*0.03, iy+ih*0.53, iw*0.05, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#22c55e';
+    ctx.beginPath(); ctx.arc(plx+iw*0.03, iy+ih*0.5, iw*0.03, 0, Math.PI*2); ctx.fill();
+  }
+  // Sofa
+  ctx.fillStyle = '#475569';
+  ctx.beginPath(); ctx.roundRect(ix+iw*0.12, iy+ih*0.53, iw*0.25, ih*0.2, 3); ctx.fill();
+  ctx.fillStyle = '#64748b'; ctx.fillRect(ix+iw*0.12, iy+ih*0.53, iw*0.25, 2);
+  // Directory
+  ctx.fillStyle = '#1e293b'; ctx.fillRect(ix+iw*0.02, iy+ih*0.08, iw*0.15, ih*0.35);
+  ctx.fillStyle = '#fbbf24'; ctx.font = `bold ${Math.max(4,ih*0.06)}px 'Inter',sans-serif`; ctx.textAlign = 'left';
+  ctx.fillText('DIR', ix+iw*0.04, iy+ih*0.15);
+  ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.font = `${Math.max(3,ih*0.04)}px 'Inter',sans-serif`;
+  ctx.fillText('1F Lobby', ix+iw*0.04, iy+ih*0.22);
+  ctx.fillText('2F Offices', ix+iw*0.04, iy+ih*0.28);
+  ctx.fillText('3F Shops', ix+iw*0.04, iy+ih*0.34);
+}
+
+// ── Minimap ──
+function drawMinimap() {
+  const mw = minimapCanvas.width, mh = minimapCanvas.height;
+  minimapCtx.fillStyle = '#0f172a'; minimapCtx.fillRect(0, 0, mw, mh);
+  const highest = getHighestFloor() + 2;
+  const cellW2 = mw / COLS, cellH2 = mh / Math.max(highest + 1, 20);
+  for (let r = 0; r <= highest; r++) for (let c = 0; c < COLS; c++) {
+    const cell = state.tower[r] && state.tower[r][c];
+    if (cell) {
+      minimapCtx.fillStyle = COLORS.building[cell.type] || '#475569';
+      minimapCtx.fillRect(c * cellW2, mh - (r + 1) * cellH2, cellW2 - 1, cellH2 - 1);
+    }
+  }
+  const viewTop = Math.max(0, state.cameraY / (CELL_H * state.zoom));
+  const viewH = canvas.height / (CELL_H * state.zoom);
+  minimapCtx.strokeStyle = 'rgba(255,255,255,0.4)'; minimapCtx.lineWidth = 1;
+  minimapCtx.strokeRect(1, mh - (viewTop + viewH) * cellH2, mw - 2, viewH * cellH2);
+}
+
+// ── HUD ──
+function updateHUD() {
+  document.getElementById('hud-money').textContent = '$' + state.money.toLocaleString();
+  document.getElementById('hud-pop').textContent = state.population.toLocaleString();
+  document.getElementById('hud-floors').textContent = getFloorCount();
+  document.getElementById('hud-rating').textContent = '★'.repeat(state.rating);
+  document.getElementById('date-day').textContent = `Day ${state.day}`;
+  document.getElementById('date-period').textContent = state.dayPhase.charAt(0).toUpperCase() + state.dayPhase.slice(1);
+}
+
+function addLog(text, type = '') {
+  const log = document.getElementById('event-log');
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  entry.innerHTML = `<span class="time">${state.dayPhase.slice(0,3).toUpperCase()}</span>${text}`;
+  log.appendChild(entry);
+  if (log.children.length > 30) log.removeChild(log.firstChild);
+  log.scrollTop = log.scrollHeight;
+}
+
+function showToast(text, type = 'info') {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = text;
+  document.getElementById('game-container').appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ── Achievements ──
+const ACHIEVEMENTS = {
+  first_build: { icon: '🏗️', name: 'First Floor' },
+  ten_floors: { icon: '🏢', name: 'Rising Tower' },
+  twenty_floors: { icon: '🌆', name: 'Skyline Builder' },
+  fifty_floors: { icon: '🏙️', name: 'Tower Titan' },
+  hundred_floors: { icon: '👑', name: 'Sky Master' },
+  first_resident: { icon: '🏠', name: 'Home Sweet Home' },
+  pop_10: { icon: '👥', name: 'Small Community' },
+  pop_50: { icon: '🏘️', name: 'Growing Town' },
+  pop_100: { icon: '🌆', name: 'Bustling City' },
+  first_cinema: { icon: '🎬', name: 'Entertainment Hub' },
+  first_spa: { icon: '🧖', name: 'Luxury Living' },
+  first_park: { icon: '🌳', name: 'Green Space' },
+  five_star: { icon: '⭐', name: 'Five Star Rating' },
+  rich: { icon: '💎', name: 'Millionaire' },
+};
+
+function checkAchievements() {
+  const fc = getFloorCount();
+  const unlocks = [];
+  if (fc >= 1) unlocks.push('first_build');
+  if (fc >= 10) unlocks.push('ten_floors');
+  if (fc >= 20) unlocks.push('twenty_floors');
+  if (fc >= 50) unlocks.push('fifty_floors');
+  if (fc >= 100) unlocks.push('hundred_floors');
+  if (state.population > 0) unlocks.push('first_resident');
+  if (state.population >= 10) unlocks.push('pop_10');
+  if (state.population >= 50) unlocks.push('pop_50');
+  if (state.population >= 100) unlocks.push('pop_100');
+  if (state.rating >= 5) unlocks.push('five_star');
+  if (state.money >= 1000000) unlocks.push('rich');
+
+  for (let r = 0; r < MAX_FLOORS; r++) for (let c = 0; c < COLS; c++) {
+    const cell = state.tower[r][c];
+    if (cell) {
+      if (cell.type === 'cinema') unlocks.push('first_cinema');
+      if (cell.type === 'spa') unlocks.push('first_spa');
+      if (cell.type === 'park') unlocks.push('first_park');
+    }
+  }
+
+  unlocks.forEach(id => {
+    if (!state.achievementsUnlocked.has(id) && ACHIEVEMENTS[id]) {
+      state.achievementsUnlocked.add(id);
+      showAchievement(ACHIEVEMENTS[id]);
+    }
+  });
+}
+
+function showAchievement(ach) {
+  const popup = document.getElementById('achievement-popup');
+  document.getElementById('ach-icon').textContent = ach.icon;
+  document.getElementById('ach-name').textContent = ach.name;
+  popup.classList.add('show');
+  sfxAchievement();
+  addLog(`🏆 Achievement: ${ach.name}`, 'warning');
+  setTimeout(() => popup.classList.remove('show'), 2500);
+}
+
+// ── Info Panel ──
+function showInfoPanel(row, col) {
+  const cell = state.tower[row] && state.tower[row][col];
+  if (!cell) { closeInfoPanel(); return; }
+  const ft = FLOOR_TYPES[cell.type];
+  if (!ft) return;
+  document.getElementById('info-title').textContent = `${ft.icon} ${ft.name} — Floor ${row + 1}`;
+  document.getElementById('info-content').innerHTML = `
+    <div class="info-row"><span class="label">Type</span><span class="value">${ft.name}</span></div>
+    <div class="info-row"><span class="label">Income</span><span class="value" style="color:#4ade80">$${ft.income}/day</span></div>
+    <div class="info-row"><span class="label">Capacity</span><span class="value">${cell.occupancy}/${ft.capacity}</span></div>
+    <div class="info-row"><span class="label">Satisfaction</span><span class="value" style="color:#fbbf24">${Math.round(state.satisfaction)}%</span></div>
+    ${ft.popAdd > 0 ? `<div class="info-row"><span class="label">Population</span><span class="value" style="color:#60a5fa">+${ft.popAdd}</span></div>` : ''}
+    <div class="info-row"><span class="label">Built</span><span class="value">Day ${cell.built}</span></div>`;
+  document.getElementById('info-panel').classList.add('visible');
+}
+function closeInfoPanel() { document.getElementById('info-panel').classList.remove('visible'); }
+
+// ── Input ──
+let isDragging = false, dragStartY = 0, dragStartCamY = 0;
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 0) { isDragging = true; dragStartY = e.clientY; dragStartCamY = state.cameraY; }
+});
+canvas.addEventListener('mousemove', e => {
+  if (isDragging && state.selectedTool === 'select') {
+    state.cameraY = Math.max(0, dragStartCamY + (dragStartY - e.clientY));
+  }
+  state.hoveredCell = screenToCell(e.clientX, e.clientY);
+});
+canvas.addEventListener('mouseup', e => {
+  if (isDragging && Math.abs(e.clientY - dragStartY) < 5) {
+    const cell = screenToCell(e.clientX, e.clientY);
+    if (cell) {
+      if (state.selectedTool === 'select') { showInfoPanel(cell.row, cell.col); sfxClick(); }
+      else if (state.selectedTool === 'demolish') demolishFloor(cell.row, cell.col);
+      else buildFloor(cell.row, cell.col, state.selectedTool);
+    }
+  }
+  isDragging = false;
+});
+canvas.addEventListener('wheel', e => { state.cameraY = Math.max(0, state.cameraY + e.deltaY * 0.8); });
+
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.selectedTool = btn.dataset.tool;
+    sfxClick();
+    closeInfoPanel();
+  });
+});
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.speed = parseInt(btn.dataset.speed);
+    sfxClick();
+  });
+});
+minimapCanvas.addEventListener('click', e => {
+  const rect = minimapCanvas.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  const ratio = y / minimapCanvas.height;
+  const highest = getHighestFloor() + 2;
+  state.cameraY = Math.max(0, (1 - ratio) * highest * CELL_H * state.zoom - canvas.height / 2);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === '1') document.querySelector('[data-tool="office"]').click();
+  if (e.key === '2') document.querySelector('[data-tool="residence"]').click();
+  if (e.key === '3') document.querySelector('[data-tool="hotel"]').click();
+  if (e.key === '4') document.querySelector('[data-tool="shop"]').click();
+  if (e.key === '5') document.querySelector('[data-tool="restaurant"]').click();
+  if (e.key === '6') document.querySelector('[data-tool="cinema"]').click();
+  if (e.key === '7') document.querySelector('[data-tool="park"]').click();
+  if (e.key === '8') document.querySelector('[data-tool="spa"]').click();
+  if (e.key === 'e') document.querySelector('[data-tool="elevator"]').click();
+  if (e.key === 'd' || e.key === 'Delete') document.querySelector('[data-tool="demolish"]').click();
+  if (e.key === 's') document.querySelector('[data-tool="select"]').click();
+  if (e.key === ' ') { e.preventDefault(); document.querySelector('[data-speed="1"]').click(); }
+  if (e.key === 'Escape') closeInfoPanel();
+  if (e.key === 'ArrowUp') state.cameraY = Math.max(0, state.cameraY - 80);
+  if (e.key === 'ArrowDown') state.cameraY += 80;
+});
+
+// ── Main Loop ──
+let lastTime = 0;
+initTower();
+resize();
+
+buildFloor(1, 1, 'shop');
+buildFloor(1, 2, 'restaurant');
+buildFloor(1, 3, 'office');
+buildFloor(1, 5, 'office');
+buildFloor(1, 6, 'shop');
+buildFloor(1, 7, 'residence');
+buildFloor(2, 1, 'office');
+buildFloor(2, 2, 'residence');
+buildFloor(2, 3, 'residence');
+buildFloor(2, 5, 'residence');
+buildFloor(2, 6, 'office');
+buildFloor(2, 7, 'office');
+state.money = 500000;
+state.cameraY = 0;
+updateEconomy();
+
+addLog('🏗️ Welcome to Wippa Sky!', 'info');
+addLog('💡 Select a tool, then click the tower to build.', 'info');
+addLog('🔑 Keys 1-8: tools • Arrows: scroll • Space: pause', 'info');
+
+function gameLoop(timestamp) {
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+  lastTime = timestamp;
+  state.tick += dt * state.speed;
+
+  updateDayCycle(dt);
+  updateSky(dt);
+  updateTenants(dt);
+  updateElevators(dt);
+  updateParticles(dt);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawSky();
+  drawBackgroundCity();
+  drawGround();
+  drawTower();
+  drawMinimap();
+  updateHUD();
+
+  requestAnimationFrame(gameLoop);
+}
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

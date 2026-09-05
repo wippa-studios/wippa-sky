@@ -1,0 +1,12 @@
+{
+  "name": "wippa-sky",
+  "version": "1.0.0",
+  "description": "A modern tower builder game inspired by SimTower, built with HTML5 Canvas and vanilla JavaScript",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 3001"
+  },
+  "keywords": ["game", "tower-builder", "simulation", "html5-canvas"],
+  "author": "",
+  "license": "ISC"
+}
